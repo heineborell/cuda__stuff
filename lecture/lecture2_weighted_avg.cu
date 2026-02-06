@@ -12,13 +12,12 @@
 void rgb2gray_cpu(unsigned char* red,unsigned char* green, unsigned char* blue, unsigned char* gray, int width, int height){
   for(unsigned int i=0;i < width*height;++i)
    gray[i]= red[i]*3/10+green[i]*6/10+blue[i]*1/10;
-
 }
 
 __global__ void rgb2gray_kernel(unsigned char* red,unsigned char* green, unsigned char* blue, unsigned char* gray, int width, int height){
   unsigned int row= blockIdx.y*blockDim.y+threadIdx.y;
   unsigned int column= blockIdx.x*blockDim.x+threadIdx.x;
-  unsigned int i = row*width+ column;
+  unsigned int i = row*width+ column; // basically same as the usual matrix stride y*Nx+x
   if(row < height&& column < width)
    gray[i]= red[i]*3/10+green[i]*6/10+blue[i]*1/10;
 }
@@ -80,7 +79,7 @@ int main() {
   int height;
   int channels;
   unsigned char *data =
-      stbi_load("background.jpg", &width, &height, &channels, 0);
+      stbi_load("doggo.jpg", &width, &height, &channels, 0);
 
   // ... process data if not NULL ...
   // ... x = width, y = height, n = # 8-bit components per pixel ...
@@ -107,16 +106,17 @@ int main() {
       blue[i/3] = data[i];
   }
 
+  Timer t_cpu;
+  rgb2gray_cpu(red.data(),green.data(),blue.data(),gray.data(),width,height);
+  std::cout << " Cpu elapsed time " << t_cpu.elapsed() << '\n'; 
+
   Timer t_totalgpu;
   rgb2gray_gpu(red,green,blue,gray,width,height);
   cudaDeviceSynchronize();
   std::cout << " GPU elapsed time " << t_totalgpu.elapsed() << '\n'; 
 
-  Timer t_cpu;
-  rgb2gray_cpu(red.data(),green.data(),blue.data(),gray.data(),width,height);
-  std::cout << " Cpu elapsed time " << t_cpu.elapsed() << '\n'; 
 
-  stbi_write_png("output.png", width, height, 1, gray.data(), width * 1); // width
+  stbi_write_png("output_gray.png", width, height, 1, gray.data(), width * 1); // width
   stbi_image_free(data);
 
   return 0;
