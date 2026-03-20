@@ -10,10 +10,26 @@
 #include <iostream>
 #include "Random.h"
 
-void mm_cpu(std::vector<float> &A, std::vector<float> &B,std::vector<float> &C, int N){}
+void mm_cpu(std::vector<float> &A, std::vector<float> &B,std::vector<float> &C, int N){
+  for(int y{0}; y< N;++y){
+    for(int x{0};x<N;++x){
+      float sum {0.0f};
+      for(int i{0};i<N;++i){
+        sum+= A.data()[y*N+i]*B.data()[i*N+x];
+      }
+      C.data()[y*N+x]= sum;
+    }
+  }
+
+}
 
 __global__ void mm_kernel(float* A,float* B, float* C,int N){
-}
+  unsigned int row= blockIdx.y*blockDim.y+threadIdx.y;
+  unsigned int column= blockIdx.x*blockDim.x+threadIdx.x;
+  float sum {0};
+  for(int i{0}; i< N; ++i)
+sum+= A[row*N+i]*B[i*N+column];
+  C[row*N+column]=sum;}
 
 void mm_gpu(std::vector<float> &A, std::vector<float> &B,std::vector<float> &C, int N){
 
@@ -43,9 +59,9 @@ void mm_gpu(std::vector<float> &A, std::vector<float> &B,std::vector<float> &C, 
   dim3 numBlocks((N+numThreadsPerBlock.x-1)/numThreadsPerBlock.x,(N+numThreadsPerBlock.y-1)/numThreadsPerBlock.y);
   
   Timer t_kernelgpu;
- // mm_kernel<<<numBlocks, numThreadsPerBlock>>>(A_d,B_d,C_d,N);
-  std::cout << "GPU computation time " << t_kernelgpu.elapsed() << " secs."<< '\n';
+ mm_kernel<<<numBlocks, numThreadsPerBlock>>>(A_d,B_d,C_d,N);
   cudaDeviceSynchronize(); // wait for GPU to finish!
+  std::cout << "GPU computation time " << t_kernelgpu.elapsed() << " secs."<< '\n';
 
   //Copy from the GPU
   cudaMemcpy(C.data(),C_d,N*N,cudaMemcpyDeviceToHost);
@@ -64,7 +80,7 @@ void mm_gpu(std::vector<float> &A, std::vector<float> &B,std::vector<float> &C, 
 
 int main() {
 
-  int N {100};
+  int N {1000};
 
   std::vector<float> A(N*N);
   std::vector<float> B(N*N);
@@ -82,7 +98,7 @@ int main() {
 
 
   Timer t_cpu;
-  mm_cpu(A,B,C,N*N);
+  mm_cpu(A,B,C,N);
   std::cout << " Cpu elapsed time " << t_cpu.elapsed() << '\n'; 
 
 // Sample call: Random::get(1L, 6L);             // returns long
