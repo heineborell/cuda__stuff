@@ -30,8 +30,8 @@ double trapezoidArea(std::vector<double> &xk, double dx, int N) {
   return area;
 }
 
-void printArray(std::vector<double> &arr) {
-  for (double &item : arr) {
+void printArray(std::vector<double> const &arr) {
+  for (double const &item : arr) {
     std::cout << item << '\n';
   }
 }
@@ -45,17 +45,52 @@ std::vector<double> vectorScale(std::vector<double> &arr, double scalar) {
 }
 
 // matrix multiply AB=C
-void mm(std::vector<double> &A, std::vector<double> &B, std::vector<double> &C,
-        int Nay, int Nbx) {
-  for (int y{0}; y < Nay; ++y) {
-    for (int x{0}; x < Nbx; ++x) {
-      double sum{0.0f};
-      for (int i{0}; i < Nay; ++i) {
-        sum += A.data()[y * Nay + i] * B.data()[i * Nay + x];
+std::vector<double> mmCpu(std::vector<double> const &A,
+                          std::vector<double> const &B, int Nay, int Nbx,
+                          int K) {
+  // C dimensions: rows of A (Nay) x cols of B (Nbx) , K is common dim
+  std::vector<double> C(static_cast<std::size_t>(Nay * Nbx), 0.0);
+
+  for (int y = 0; y < Nay; ++y) {
+    for (int x = 0; x < Nbx; ++x) {
+      double sum = 0.0;
+      for (int i = 0; i < K; ++i) {
+        sum += A.data()[y * K + i] * B.data()[i * Nbx + x];
       }
-      C.data()[y * Nay + x] = sum;
+      C.data()[y * Nbx + x] = sum;
     }
   }
+  return C;
+}
+
+// vectorAdd addition
+std::vector<double> vecAddCpu(std::vector<double> const &x,
+                              std::vector<double> const &y) {
+
+  std::size_t N{x.size()};
+  std::vector<double> z(N, 0.0);
+  for (std::size_t i{0}; i < N; ++i)
+    z[i] = x[i] + y[i];
+  return z;
+}
+
+std::vector<double> feSolver(std::vector<double> &A, std::vector<double> &x0,
+                             double dt, int N) {
+  std::vector<double> I{1, 0, 0, 1}; // identity
+  std::vector<double> X(static_cast<std::size_t>(N), 0.0);
+  X[0] = x0[0]; // initial position
+  X[1] = x0[1]; // initial velocity
+  std::vector<double> propagator{vecAddCpu(I, vectorScale(A, dt))}; // (I+A dt)
+
+  for (int k{2}; k + 1 < N; k += 2) {
+    std::vector<double> Xdot{
+        mmCpu(propagator, {X.data()[k - 2], X.data()[k - 1]}, 2, 1, 2)};
+    // printArray(Xdot);
+    X.data()[k] = Xdot[0];
+    X.data()[k + 1] = Xdot[1];
+    std::cout << k << '\n';
+  }
+  return X;
 }
 
 int main() {
@@ -67,22 +102,17 @@ int main() {
   int Ny{2};
   std::vector<double> A{0, 1, -w * w, -2 * zeta * w}; // A vector
   std::vector<double> I{1, 0, 0, 1};                  // identity
+  std::vector<double> x0{2, 0};                       // initial condition
   double dt{0.01};                                    // time step
   double T{10.0};                                     // total time
 
-  std::vector<double> x0{2, 0}; // initial condition
   int N{static_cast<int>(T / dt)};
 
-  // std::cout << "number of time intervals " << N << '\n';
   std::vector<double> scaledVec{vectorScale(A, dt)};
   std::vector<double> C(2, 0);
-  mm_og(I, x0, C, 2, 1);
+  std::vector<double> result{feSolver(A, x0, dt, N)};
 
-  // mm_cpu(I, x0, C, 2, 2, 0);
-
-  printArray(C);
-  // printArray(A);
-  // printArray(scaledVec);
+  // printArray(mmCpu(I, {3, 2}, 2, 1, 2));
 
   std::cout << "total time is " << t.elapsed() << '\n';
   return 0;
