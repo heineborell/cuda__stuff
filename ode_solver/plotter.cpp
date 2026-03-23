@@ -1,34 +1,10 @@
-#include "helper.h"
+#include "math.h"
+#include "raylib.h"
 #include <cmath>
 #include <cstddef>
-#include <iomanip>
 #include <iostream>
 #include <numbers>
 #include <vector>
-
-double leftRectangleArea(std::vector<double> &xk, double dx, int N) {
-  double area{0.0f};
-  for (int i{0}; i < N; ++i) {
-    area = area + sin(xk.data()[i]) * dx;
-  }
-  return area;
-}
-
-double rightRectangleArea(std::vector<double> &xk, double dx, int N) {
-  double area{0.0f};
-  for (int i{1}; i <= N; ++i) {
-    area = area + sin(xk.data()[i]) * dx;
-  }
-  return area;
-}
-
-double trapezoidArea(std::vector<double> &xk, double dx, int N) {
-  double area{0.0f};
-  for (int i{0}; i < N; ++i) {
-    area = area + dx / 2 * (sin(xk.data()[i]) + sin(xk.data()[i + 1]));
-  }
-  return area;
-}
 
 void printArray(std::vector<double> const &arr) {
   for (double const &item : arr) {
@@ -36,6 +12,14 @@ void printArray(std::vector<double> const &arr) {
   }
 }
 
+std::vector<float> castArray(std::vector<double> &arr) {
+  std::size_t N{arr.size()};
+  std::vector<float> A(N, 0.0f);
+  for (std::size_t i{0}; i < N; ++i) {
+    A[i] = static_cast<float>(arr[i]);
+  }
+  return A;
+}
 std::vector<double> vectorScale(std::vector<double> &arr, double scalar) {
   std::vector<double> scaled;
   scaled.reserve(size(arr));
@@ -88,15 +72,14 @@ std::vector<double> feSolver(std::vector<double> &A, std::vector<double> &x0,
     // printArray(Xdot);
     X.data()[k] = Xdot[0];
     X.data()[k + 1] = Xdot[1];
-    std::cout << k << '\n';
   }
   return X;
 }
 
 int main() {
-  Timer t;
-  double w{2 * std::numbers::pi}; // natural frequency
-  double zeta{0.25};              // damping ratio
+  // solver piece
+  double w{2 * M_PI}; // natural frequency
+  double zeta{0.25};  // damping ratio
 
   int Nx{2};
   int Ny{2};
@@ -104,17 +87,60 @@ int main() {
   std::vector<double> I{1, 0, 0, 1};                  // identity
   std::vector<double> x0{2, 0};                       // initial condition
   double dt{0.01};                                    // time step
-  double T{10.0};                                     // total time
+  float xRange{
+      10.0f}; // x will range from -4 to 4 but then changed by scrolling
 
-  int N{static_cast<int>(T / dt)};
-
-  std::vector<double> scaledVec{vectorScale(A, dt)};
-  std::vector<double> C(2, 0);
+  int N{static_cast<int>(xRange / dt)};
   std::vector<double> result{feSolver(A, x0, dt, N)};
-  printArray(result);
+  std::vector<float> resultFloat{castArray(result)};
 
-  // printArray(mmCpu(I, {3, 2}, 2, 1, 2));
+  const int screenWidth{1000};
+  const int screenHeight{640};
+  InitWindow(screenWidth, screenHeight, "polynomialWave");
+  SetTargetFPS(60);
+  const int wavePoints{1000};
+  const float zoomSpeed{1.1f};
 
-  std::cout << "total time is " << t.elapsed() << '\n';
+  while (!WindowShouldClose()) {
+    if (IsKeyPressed(KEY_UP))
+      xRange /= zoomSpeed; // zoom in
+    if (IsKeyPressed(KEY_DOWN))
+      xRange *= zoomSpeed; // zoom in
+    if (xRange < 0.1f)
+      xRange = 0.1f;
+    if (xRange > 50.0f)
+      xRange = 50.0f;
+
+    float step{xRange / wavePoints}; // step size for plotting
+
+    BeginDrawing();
+    ClearBackground(BLACK);
+
+    DrawLine(screenWidth / 2, 0, screenWidth / 2, screenHeight, GRAY);
+    DrawLine(0, screenHeight / 2, screenWidth, screenHeight / 2, GRAY);
+
+    DrawText("Y", screenWidth / 2 + 5, 5, 20, GRAY);
+    DrawText("X", screenWidth - 20, screenHeight / 2 + 5, 20, GRAY);
+    for (std::size_t i{0}; i < N; ++i) {
+      float x1{0 + i * step}; // current x value
+      float x2{x1 + step};    // next x value
+      float y1{resultFloat.data()[i]};
+      float y2{resultFloat.data()[i + 2]};
+
+      // Map x and y values to screen coordinates
+      Vector2 start = {screenWidth / 2 + x1 * (screenWidth / (2 * xRange)),
+                       screenHeight / 2 - y1 * (screenHeight / (2 * xRange))};
+      Vector2 end = {screenWidth / 2 + x2 * (screenWidth / (2 * xRange)),
+                     screenHeight / 2 - y2 * (screenHeight / (2 * xRange))};
+      if (i % 2 == 0)
+        DrawLineEx(start, end, 1.0f, GREEN);
+      else
+        DrawLineEx(start, end, 1.0f, MAROON);
+    }
+
+    EndDrawing();
+  }
+
+  CloseWindow();
   return 0;
 }
