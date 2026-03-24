@@ -79,16 +79,13 @@ std::vector<double> feSolver(std::vector<double> &A, std::vector<double> &x0,
 int main() {
   // solver piece
   double w{2 * M_PI}; // natural frequency
-  double zeta{0.25};  // damping ratio
+  double zeta{0.15};  // damping ratio
 
-  int Nx{2};
-  int Ny{2};
   std::vector<double> A{0, 1, -w * w, -2 * zeta * w}; // A vector
   std::vector<double> I{1, 0, 0, 1};                  // identity
   std::vector<double> x0{2, 0};                       // initial condition
-  double dt{0.01};                                    // time step
-  float xRange{
-      10.0f}; // x will range from -4 to 4 but then changed by scrolling
+  double dt{0.001};                                   // time step
+  float xRange{10.0f};
 
   int N{static_cast<int>(xRange / dt)};
   std::vector<double> result{feSolver(A, x0, dt, N)};
@@ -98,7 +95,6 @@ int main() {
   const int screenHeight{640};
   InitWindow(screenWidth, screenHeight, "polynomialWave");
   SetTargetFPS(60);
-  const int wavePoints{1000};
   const float zoomSpeed{1.1f};
 
   while (!WindowShouldClose()) {
@@ -111,7 +107,7 @@ int main() {
     if (xRange > 50.0f)
       xRange = 50.0f;
 
-    float step{xRange / wavePoints}; // step size for plotting
+    float step{xRange / N}; // step size for plotting
 
     BeginDrawing();
     ClearBackground(BLACK);
@@ -119,8 +115,8 @@ int main() {
     DrawLine(screenWidth / 2, 0, screenWidth / 2, screenHeight, GRAY);
     DrawLine(0, screenHeight / 2, screenWidth, screenHeight / 2, GRAY);
 
-    DrawText("Y", screenWidth / 2 + 5, 5, 20, GRAY);
-    DrawText("X", screenWidth - 20, screenHeight / 2 + 5, 20, GRAY);
+    DrawText("X", screenWidth / 2 + 5, 5, 20, GRAY);
+    DrawText("T", screenWidth - 20, screenHeight / 2 + 5, 20, GRAY);
     for (std::size_t i{0}; i < N; ++i) {
       float x1{0 + i * step}; // current x value
       float x2{x1 + step};    // next x value
@@ -133,7 +129,7 @@ int main() {
       Vector2 end = {screenWidth / 2 + x2 * (screenWidth / (2 * xRange)),
                      screenHeight / 2 - y2 * (screenHeight / (2 * xRange))};
       if (i % 2 == 0)
-        DrawLineEx(start, end, 1.0f, GREEN);
+        DrawLineEx(start, end, 1.5f, GREEN);
       else
         DrawLineEx(start, end, 1.0f, MAROON);
     }
