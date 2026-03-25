@@ -1,34 +1,10 @@
-#include "helper.h"
+#include "math.h"
+#include "raylib.h"
 #include <cmath>
 #include <cstddef>
-#include <iomanip>
 #include <iostream>
 #include <numbers>
 #include <vector>
-
-double leftRectangleArea(std::vector<double> &xk, double dx, int N) {
-  double area{0.0f};
-  for (int i{0}; i < N; ++i) {
-    area = area + sin(xk.data()[i]) * dx;
-  }
-  return area;
-}
-
-double rightRectangleArea(std::vector<double> &xk, double dx, int N) {
-  double area{0.0f};
-  for (int i{1}; i <= N; ++i) {
-    area = area + sin(xk.data()[i]) * dx;
-  }
-  return area;
-}
-
-double trapezoidArea(std::vector<double> &xk, double dx, int N) {
-  double area{0.0f};
-  for (int i{0}; i < N; ++i) {
-    area = area + dx / 2 * (sin(xk.data()[i]) + sin(xk.data()[i + 1]));
-  }
-  return area;
-}
 
 void printArray(std::vector<double> const &arr) {
   for (double const &item : arr) {
@@ -36,6 +12,14 @@ void printArray(std::vector<double> const &arr) {
   }
 }
 
+std::vector<float> castArray(std::vector<double> &arr) {
+  std::size_t N{arr.size()};
+  std::vector<float> A(N, 0.0f);
+  for (std::size_t i{0}; i < N; ++i) {
+    A[i] = static_cast<float>(arr[i]);
+  }
+  return A;
+}
 std::vector<double> vectorScale(std::vector<double> &arr, double scalar) {
   std::vector<double> scaled;
   scaled.reserve(size(arr));
@@ -85,7 +69,6 @@ std::vector<double> feSolver(std::vector<double> &A, std::vector<double> &x0,
   for (int k{2}; k + 1 < N; k += 2) {
     std::vector<double> Xdot{
         mmCpu(propagator, {X.data()[k - 2], X.data()[k - 1]}, 2, 1, 2)};
-    // printArray(Xdot);
     X.data()[k] = Xdot[0];
     X.data()[k + 1] = Xdot[1];
   }
@@ -103,29 +86,64 @@ std::vector<double> verlet(std::vector<double> &x0, double dt, int N) {
   }
   return X;
 }
-
 int main() {
-  Timer t;
+  // solver piece
   double w{2 * M_PI}; // natural frequency
-  double zeta{0.25};  // damping ratio
+  double zeta{0.15};  // damping ratio
 
-  int Nx{2};
-  int Ny{2};
   std::vector<double> A{0, 1, -w * w, -2 * zeta * w}; // A vector
   std::vector<double> I{1, 0, 0, 1};                  // identity
   std::vector<double> x0{1, 1};                       // initial condition
   double dt{0.001};                                   // time step
-  double T{10.0};                                     // total time
+  float xRange{2.5f};
 
-  int N{static_cast<int>(T / dt)};
+  int N{static_cast<int>(xRange / dt)};
+  std::vector<double> result{verlet(x0, dt, N)};
+  std::vector<float> resultFloat{castArray(result)};
 
-  std::vector<double> scaledVec{vectorScale(A, dt)};
-  std::vector<double> C(2, 0);
-  std::vector<double> feResult{feSolver(A, x0, dt, N)};
-  std::vector<double> verletResult{verlet(x0, dt, N)};
-  // printArray(verletResult);
-  std::cout << verletResult.data()[999] << '\n';
+  const int screenWidth{1960};
+  const int screenHeight{800};
+  InitWindow(screenWidth, screenHeight, "polynomialWave");
+  SetTargetFPS(60);
+  const float zoomSpeed{1.1f};
 
-  std::cout << "total time is " << t.elapsed() << '\n';
+  while (!WindowShouldClose()) {
+    if (IsKeyPressed(KEY_UP))
+      xRange /= zoomSpeed; // zoom in
+    if (IsKeyPressed(KEY_DOWN))
+      xRange *= zoomSpeed; // zoom in
+    if (xRange < 0.1f)
+      xRange = 0.1f;
+    if (xRange > 50.0f)
+      xRange = 50.0f;
+
+    float step{xRange / N}; // step size for plotting
+
+    BeginDrawing();
+    ClearBackground(BLACK);
+
+    DrawLine(screenWidth / 2, 0, screenWidth / 2, screenHeight, GRAY);
+    DrawLine(0, screenHeight / 2, screenWidth, screenHeight / 2, GRAY);
+
+    DrawText("X", screenWidth / 2 + 5, 5, 20, GRAY);
+    DrawText("T", screenWidth - 20, screenHeight / 2 + 5, 20, GRAY);
+    for (std::size_t i{0}; i < N; ++i) {
+      float x1{0 + i * step}; // current x value
+      float x2{x1 + step};    // next x value
+      float y1{resultFloat.data()[i]};
+      float y2{resultFloat.data()[i + 2]};
+
+      // Map x and y values to screen coordinates
+      Vector2 start = {screenWidth / 2 + x1 * (screenWidth / (2 * xRange)),
+                       screenHeight / 2 - y1 * (screenHeight / (2 * xRange))};
+      Vector2 end = {screenWidth / 2 + x2 * (screenWidth / (2 * xRange)),
+                     screenHeight / 2 - y2 * (screenHeight / (2 * xRange))};
+      DrawLineEx(start, end, 1.5f, GREEN);
+    }
+
+    EndDrawing();
+  }
+
+  CloseWindow();
   return 0;
 }

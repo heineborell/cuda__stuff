@@ -69,7 +69,6 @@ std::vector<double> feSolver(std::vector<double> &A, std::vector<double> &x0,
   for (int k{2}; k + 1 < N; k += 2) {
     std::vector<double> Xdot{
         mmCpu(propagator, {X.data()[k - 2], X.data()[k - 1]}, 2, 1, 2)};
-    // printArray(Xdot);
     X.data()[k] = Xdot[0];
     X.data()[k + 1] = Xdot[1];
   }
@@ -91,8 +90,8 @@ int main() {
   std::vector<double> result{feSolver(A, x0, dt, N)};
   std::vector<float> resultFloat{castArray(result)};
 
-  const int screenWidth{1000};
-  const int screenHeight{640};
+  const int screenWidth{1960};
+  const int screenHeight{800};
   InitWindow(screenWidth, screenHeight, "polynomialWave");
   SetTargetFPS(60);
   const float zoomSpeed{1.1f};
