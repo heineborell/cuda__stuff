@@ -65,12 +65,11 @@ std::vector<double> timeVec(int N, double dt){
 
 
 template <typename Func>
-std::vector<double> rk2firstOrder(std::vector<double> &X,const Func &fn, double dt, int N) {
-  for (int k{0}; k < N; ++k) {
-    X.data()[k + 1] = X.data()[k] +dt ;
+void rk2firstOrder(std::vector<double> &X,std::vector<double> &T,const Func &fn, double dt, int N) {
+  for (int k{0}; k < N-1; ++k) {
+    X.data()[k + 1] = X.data()[k] +dt*fn(X.data()[k]+dt/2*fn(X.data()[k],T.data()[k]),T.data()[k]+dt/2) ;
   }
-
-return X;}
+}
 
 int main() {
   // solver piece
@@ -79,17 +78,22 @@ int main() {
   float xRange{2.5f};
 
   int N{static_cast<int>(xRange / dt)};
+  // create X and set initial value
   std::vector<double> X(static_cast<std::size_t>(N), 0.0);
   X.data()[0]= 1.0;
 
+  // time vector tk
   std::vector<double> tk {timeVec(N, dt)};
-  auto rhs=[](double x){return (-1.0 / (x * x));};
-  std::vector<double> result{rk2firstOrder(X, rhs, dt, N)};
-  std::vector<float> resultFloat{castArray(result)};
+  //function to be integrated
+  auto rhs=[](double x,double t){return x*x;};
+
+  //integrator
+  rk2firstOrder(X,tk, rhs, dt, N);
+  std::vector<float> resultFloat{castArray(X)};
 
   const int screenWidth{1960};
   const int screenHeight{800};
-  InitWindow(screenWidth, screenHeight, "polynomialWave");
+  InitWindow(screenWidth, screenHeight, "runge kutta 2");
   SetTargetFPS(60);
   const float zoomSpeed{1.1f};
 
