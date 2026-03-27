@@ -56,50 +56,35 @@ std::vector<double> vecAddCpu(std::vector<double> const &x,
   return z;
 }
 
-std::vector<double> feSolver(std::vector<double> &A, std::vector<double> &x0,
-                             double dt, int N) {
-  std::vector<double> I{1, 0, 0, 1}; // identity
-  std::vector<double> X(static_cast<std::size_t>(N), 0.0);
-  X[0] = x0[0]; // initial position
-  X[1] = x0[1]; // initial velocity
-  std::vector<double> propagator{vecAddCpu(I, vectorScale(A, dt))}; // (I+A dt)
 
-  for (int k{2}; k + 1 < N; k += 2) {
-    std::vector<double> Xdot{
-        mmCpu(propagator, {X.data()[k - 2], X.data()[k - 1]}, 2, 1, 2)};
-    X.data()[k] = Xdot[0];
-    X.data()[k + 1] = Xdot[1];
+std::vector<double> timeVec(int N, double dt){
+       std::vector<double> Tk(N,0.0);
+       for(int i{0}; i< N;++i)
+        Tk.data()[i+1]=Tk.data()[i]+dt;
+       return Tk;}
+
+
+template <typename Func>
+std::vector<double> rk2firstOrder(std::vector<double> &X,const Func &fn, double dt, int N) {
+  for (int k{0}; k < N; ++k) {
+    X.data()[k + 1] = X.data()[k] +dt ;
   }
-  return X;
-}
 
+return X;}
 
-template <typename func>
-std::vector<double> verlet(const func &fn,const std::vector<double> &x0, double dt, int N) {
-  std::vector<double> X(static_cast<std::size_t>(N), 0.0);
-  X[0] = x0[0]; // initial position
-  X[1] = x0[0] + x0[1] * dt + 1.0f / 2.0f * fn(x0[0]) * dt * dt; // position at t=1
-
-  for (int k{1}; k < N; ++k) {
-    X.data()[k + 1] = 2 * X.data()[k] - X.data()[k - 1] +
-                      dt * dt * fn(X.data()[k]);
-  }
-  return X;
-}
 int main() {
   // solver piece
-  double w{2 * M_PI}; // natural frequency
-  double zeta{0.15};  // damping ratio
 
-  std::vector<double> A{0, 1, -w * w, -2 * zeta * w}; // A vector
-  std::vector<double> I{1, 0, 0, 1};                  // identity
-  std::vector<double> x0{1, 1};                       // initial condition
-  double dt{0.001};                                   // time step
+  double dt{0.001};                                   
   float xRange{2.5f};
 
   int N{static_cast<int>(xRange / dt)};
+  std::vector<double> X(static_cast<std::size_t>(N), 0.0);
+  X.data()[0]= 1.0;
+
+  std::vector<double> tk {timeVec(N, dt)};
   auto rhs=[](double x){return (-1.0 / (x * x));};
-  std::vector<double> result{verlet(rhs,x0, dt, N)};
+  std::vector<double> result{rk2firstOrder(X, rhs, dt, N)};
   std::vector<float> resultFloat{castArray(result)};
 
   const int screenWidth{1960};
