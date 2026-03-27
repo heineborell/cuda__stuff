@@ -93,10 +93,11 @@ void rk2firstOrder(std::vector<double> &X,double dt, int dimX, int dimY) {
 int main() {
   // solver piece
 
-  double dt{0.001};                                   
+  double dt{0.01};                                   
+  double totalT{4.0};
   float xRange{4.0f};
 
-  const int dimX{static_cast<int>(xRange / dt)};
+  const int dimX{static_cast<int>(totalT/ dt)};
   // const int dimX{5};
   constexpr int dimY {4};
   
@@ -143,11 +144,11 @@ int main() {
 
     DrawText("Y", screenWidth / 2 + 5, 5, 20, GRAY);
     DrawText("T", screenWidth - 20, screenHeight / 2 + 5, 20, GRAY);
-    for (std::size_t i{0}; i < dimX; ++i) {
-      float x1{0 + i * step}; // current x value
-      float x2{x1 + step};    // next x value
-      float y1{resultFloat.data()[i]};
-      float y2{resultFloat.data()[i + 2]};
+    for (std::size_t i{0}; i < dimX-1; ++i) {
+      float x1{resultFloat.data()[i]}; // current x value
+      float x2{resultFloat.data()[i+1]};    // next x value
+      float y1{resultFloat.data()[dimX+i]};
+      float y2{resultFloat.data()[dimX+i+1]};
 
       // Map x and y values to screen coordinates
       Vector2 start = {screenWidth / 2 + x1 * (screenWidth / (2 * xRange)),
