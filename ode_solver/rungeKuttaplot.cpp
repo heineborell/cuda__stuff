@@ -1,9 +1,10 @@
 #include "math.h"
 #include "raylib.h"
 #include <cstddef>
+#include <functional>
+#include <iomanip>
 #include <iostream>
 #include <vector>
-#include <iomanip>
 
 void printArray(std::vector<double> const &arr) {
   for (double const &item : arr) {
@@ -57,69 +58,81 @@ std::vector<double> vecAddCpu(std::vector<double> const &x,
   return z;
 }
 
+void timeVec(std::vector<double> &vec, int gridDimX, int gridDimY, double dt) {
+  int N{static_cast<int>(vec.size())};
+  for (int i{gridDimX * (gridDimY - 1)}; i < N; ++i)
+    vec.data()[i + 1] = vec.data()[i] + dt;
+}
 
-void timeVec(std::vector<double>&vec,int gridDimX,int gridDimY, double dt){
-  int N {static_cast<int>(vec.size())};
-       for(int i{gridDimX*(gridDimY-1)}; i< N;++i)
-        vec.data()[i+1]=vec.data()[i]+dt;}  
-
-void showMatrix(std::vector<double> &vec,int gridDimX, int gridDimY) {
-  int N {static_cast<int>(vec.size())};
+void showMatrix(std::vector<double> &vec, int gridDimX, int gridDimY) {
+  int N{static_cast<int>(vec.size())};
   std::cout << std::setprecision(3);
-  for(int i {0}; i<N;++i){
-    if(i%gridDimX==0)
+  for (int i{0}; i < N; ++i) {
+    if (i % gridDimX == 0)
       std::cout << '\n';
-    std::cout << vec[i] << " ";}
+    std::cout << vec[i] << " ";
   }
+}
 
+void rk2firstOrder(
+    std::vector<double> &X,
+    std::vector<std::function<double(double, double, double)>> &rhs, double dt,
+    int dimX, int dimY) {
 
-
-
-void rk2firstOrder(std::vector<double> &X,double dt, int dimX, int dimY) {
-  //functions  to be integrated (rhs)
-  double sigma {10};
-  double rho {8.0/3.0};
-  double beta {28};
-
-  auto fnX=[sigma](double x,double y,double z ){return sigma*(y-x);};
-  auto fnY=[rho](double x,double y,double z ){return x*(rho-z)-y;};
-  auto fnZ=[beta](double x,double y,double z ){return x*y-beta*z;};
-
-    for(int x{0};x < dimX-1;++x)
-      for(int y{0};y < dimY-1;++y)
-      X.data()[y*dimX+(x+1)]=X.data()[y*dimX+x]+dt*fnX(X.data()[y*dimX+x],X.data()[(y+1)*dimX+x],X.data()[(y+2)*dimX+x]);
- }
+  for (int x{0}; x < dimX - 1; ++x) {
+    for (int y{0}; y < dimY - 1; ++y) {
+      X.data()[y * dimX + (x + 1)] =
+          X.data()[y * dimX + x] + dt * rhs.data()[y](X.data()[0 * dimX + x],
+                                                      X.data()[dimX + x],
+                                                      X.data()[2 * dimX + x]);
+    }
+  }
+}
 
 int main() {
   // solver piece
 
-  double dt{0.01};                                   
-  double totalT{4.0};
+  double dt{0.01};
+  double totalT{15.0};
   float xRange{4.0f};
 
-  const int dimX{static_cast<int>(totalT/ dt)};
+  const int dimX{static_cast<int>(totalT / dt)};
   // const int dimX{5};
-  constexpr int dimY {4};
-  
+  constexpr int dimY{4};
+
+  std::vector<std::function<double(double, double, double)>> rhs;
+
+  // functions  to be integrated (rhs)
+  double sigma{10};
+  double beta{8.0 / 3.0};
+  double rho{28};
+
+  rhs.push_back(
+      [sigma](double x, double y, double z) { return sigma * (y - x); });
+  rhs.push_back(
+      [rho](double x, double y, double z) { return x * (rho - z) - y; });
+  rhs.push_back(
+      [beta](double x, double y, double z) { return x * y - beta * z; });
+
   // create X,Y,Z and set initial value
 
-  std::vector<double> X(static_cast<std::size_t>(dimX*dimY), 0.0);
-  X.data()[0]= -8.0; //x initial
-  X.data()[dimX]= 8.0; // y initial
-  X.data()[2*dimX]= 27; // z initial 
+  std::vector<double> X(static_cast<std::size_t>(dimX * dimY), 0.0);
+  X.data()[0] = 1.0;       // x initial
+  X.data()[dimX] = 1.0;    // y initial
+  X.data()[2 * dimX] = 27; // z initial
 
   // time vector tk
-  timeVec(X,dimX,dimY, dt);
+  timeVec(X, dimX, dimY, dt);
 
-  //integrator
+  // integrator
   showMatrix(X, dimX, dimY);
   std::cout << "the processed matrix" << '\n';
-  rk2firstOrder(X, dt, dimX,dimY);
+  rk2firstOrder(X, rhs, dt, dimX, dimY);
   std::vector<float> resultFloat{castArray(X)};
   showMatrix(X, dimX, dimY);
 
   const int screenWidth{1960};
-  const int screenHeight{800};
+  const int screenHeight{1200};
   InitWindow(screenWidth, screenHeight, "runge kutta 2");
   SetTargetFPS(60);
   const float zoomSpeed{1.1f};
@@ -144,11 +157,11 @@ int main() {
 
     DrawText("Y", screenWidth / 2 + 5, 5, 20, GRAY);
     DrawText("T", screenWidth - 20, screenHeight / 2 + 5, 20, GRAY);
-    for (std::size_t i{0}; i < dimX-1; ++i) {
-      float x1{resultFloat.data()[i]}; // current x value
-      float x2{resultFloat.data()[i+1]};    // next x value
-      float y1{resultFloat.data()[dimX+i]};
-      float y2{resultFloat.data()[dimX+i+1]};
+    for (std::size_t i{0}; i < dimX - 1; ++i) {
+      float x1{resultFloat.data()[i]};     // current x value
+      float x2{resultFloat.data()[i + 1]}; // next x value
+      float y1{resultFloat.data()[dimX + i]};
+      float y2{resultFloat.data()[dimX + i + 1]};
 
       // Map x and y values to screen coordinates
       Vector2 start = {screenWidth / 2 + x1 * (screenWidth / (2 * xRange)),
