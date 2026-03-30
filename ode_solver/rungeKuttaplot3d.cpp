@@ -90,6 +90,7 @@ void rk2firstOrder(
 }
 
 int main() {
+
   // solver piece
 
   double dt{0.01};
@@ -137,42 +138,45 @@ int main() {
   SetTargetFPS(60);
   const float zoomSpeed{1.1f};
 
-  while (!WindowShouldClose()) {
-    if (IsKeyPressed(KEY_UP))
-      xRange /= zoomSpeed; // zoom in
-    if (IsKeyPressed(KEY_DOWN))
-      xRange *= zoomSpeed; // zoom in
-    if (xRange < 0.1f)
-      xRange = 0.1f;
-    if (xRange > 50.0f)
-      xRange = 50.0f;
+  // Define the camera to look into our 3d world
+  Camera3D camera = {0};
+  camera.position = (Vector3){10.0f, 10.0f, 10.0f}; // Camera position
+  camera.target = (Vector3){0.0f, 0.0f, 0.0f};      // Camera looking at point
+  camera.up =
+      (Vector3){0.0f, 1.0f, 0.0f}; // Camera up vector (rotation towards target)
+  camera.fovy = 45.0f;             // Camera field-of-view Y
+  camera.projection = CAMERA_PERSPECTIVE;
+  // DisableCursor();
 
-    float step{xRange / dimX}; // step size for plotting
+
+  while (!WindowShouldClose()) {
+    // Update
+    //----------------------------------------------------------------------------------
+    UpdateCamera(&camera, CAMERA_FREE);
+
+    if (IsKeyPressed(KEY_Z))
+      camera.target = (Vector3){0.0f, 0.0f, 0.0f};
+    //----------------------------------------------------------------------------------
+
 
     BeginDrawing();
     ClearBackground(BLACK);
+    BeginMode3D(camera);
+    // Note that in raylib the up coordinate is y
 
-    DrawLine(screenWidth / 2, 0, screenWidth / 2, screenHeight, GRAY);
-    DrawLine(0, screenHeight / 2, screenWidth, screenHeight / 2, GRAY);
-
-    DrawText("Y", screenWidth / 2 + 5, 5, 20, GRAY);
-    DrawText("T", screenWidth - 20, screenHeight / 2 + 5, 20, GRAY);
     for (std::size_t i{0}; i < dimX - 1; ++i) {
       float x1{resultFloat.data()[i]};     // current x value
       float x2{resultFloat.data()[i + 1]}; // next x value
       float y1{resultFloat.data()[dimX + i]};
       float y2{resultFloat.data()[dimX + i + 1]};
-
-      // Map x and y values to screen coordinates
-      Vector2 start = {screenWidth / 2 + x1 * (screenWidth / (2 * xRange)),
-                       screenHeight / 2 - y1 * (screenHeight / (2 * xRange))};
-      Vector2 end = {screenWidth / 2 + x2 * (screenWidth / (2 * xRange)),
-                     screenHeight / 2 - y2 * (screenHeight / (2 * xRange))};
-      DrawLineEx(start, end, 1.5f, GREEN);
-    }
-
+      float z1{resultFloat.data()[2*dimX + i]};
+      float z2{resultFloat.data()[2*dimX+ + i + 1]};
+DrawLine3D( {x1,y1,z1}, {x2,y2,z2}, GREEN); }
+    EndMode3D();
+    DrawFPS(10, 10);
     EndDrawing();
   }
+showMatrix(X, dimX, dimY);
 
   CloseWindow();
   return 0;

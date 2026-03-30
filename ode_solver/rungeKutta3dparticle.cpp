@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <iostream>
 #include <vector>
+#include "raymath.h"
 
 void printArray(std::vector<double> const &arr) {
   for (double const &item : arr) {
@@ -90,6 +91,7 @@ void rk2firstOrder(
 }
 
 int main() {
+
   // solver piece
 
   double dt{0.01};
@@ -137,40 +139,70 @@ int main() {
   SetTargetFPS(60);
   const float zoomSpeed{1.1f};
 
-  while (!WindowShouldClose()) {
-    if (IsKeyPressed(KEY_UP))
-      xRange /= zoomSpeed; // zoom in
-    if (IsKeyPressed(KEY_DOWN))
-      xRange *= zoomSpeed; // zoom in
-    if (xRange < 0.1f)
-      xRange = 0.1f;
-    if (xRange > 50.0f)
-      xRange = 50.0f;
+Camera3D camera = { 0 };
+    camera.position = (Vector3){ 80.0f, 80.0f, 80.0f };
+    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
+    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+    camera.fovy = 45.0f;
+    camera.projection = CAMERA_PERSPECTIVE;
+	
+    const int count = 5000;
 
-    float step{xRange / dimX}; // step size for plotting
+    // 1. Setup the Mesh and Material
+    Mesh sphereMesh = GenMeshSphere(0.3f, 16, 16);
+    Model sphereModel = LoadModelFromMesh(sphereMesh);
+
+
+// 1. Load the simple instancing shader
+// We use NULL for the fragment shader to use raylib's default "unlit" look
+Shader shader = LoadShader("shaders/base_instancing.vs", NULL);
+
+// 2. Link the instance attribute
+shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(shader, "mvp");
+shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocationAttrib(shader, "instanceTransform");
+
+// 3. Assign to model
+sphereModel.materials[0].shader = shader;
+sphereModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].color = GREEN; // All spheres will be green or whatever you choose
+  
+    // 2. Prepare the Transformation Matrices
+    std::vector<Matrix> transforms(count);
+    for (int i = 0; i < count; i++) {
+        // Create a random position for each sphere
+        Vector3 pos = { 
+            (float)GetRandomValue(-50, 50), 
+            (float)GetRandomValue(-50, 50), 
+            (float)GetRandomValue(-50, 50) 
+        };
+        transforms[i] = MatrixTranslate(pos.x, pos.y, pos.z);
+    }
+
+  while (!WindowShouldClose()) {
+    // Update
+    //----------------------------------------------------------------------------------
+    UpdateCamera(&camera, CAMERA_FREE);
+
+    if (IsKeyPressed(KEY_Z))
+      camera.target = (Vector3){0.0f, 0.0f, 0.0f};
+    //----------------------------------------------------------------------------------
+
 
     BeginDrawing();
     ClearBackground(BLACK);
+    BeginMode3D(camera);
 
-    DrawLine(screenWidth / 2, 0, screenWidth / 2, screenHeight, GRAY);
-    DrawLine(0, screenHeight / 2, screenWidth, screenHeight / 2, GRAY);
-
-    DrawText("Y", screenWidth / 2 + 5, 5, 20, GRAY);
-    DrawText("T", screenWidth - 20, screenHeight / 2 + 5, 20, GRAY);
-    for (std::size_t i{0}; i < dimX - 1; ++i) {
-      float x1{resultFloat.data()[i]};     // current x value
-      float x2{resultFloat.data()[i + 1]}; // next x value
-      float y1{resultFloat.data()[dimX + i]};
-      float y2{resultFloat.data()[dimX + i + 1]};
-
-      // Map x and y values to screen coordinates
-      Vector2 start = {screenWidth / 2 + x1 * (screenWidth / (2 * xRange)),
-                       screenHeight / 2 - y1 * (screenHeight / (2 * xRange))};
-      Vector2 end = {screenWidth / 2 + x2 * (screenWidth / (2 * xRange)),
-                     screenHeight / 2 - y2 * (screenHeight / (2 * xRange))};
-      DrawLineEx(start, end, 1.5f, GREEN);
+// Optional: Move spheres every frame
+    for (int i = 0; i < count; i++) {
+        // Example: Subtle floating movement
+        float time = (float)GetFrameTime();
+        std::cout << time <<'\n';
+        transforms[i] = MatrixMultiply(transforms[i], MatrixTranslate(0, sinf(time + i) * 0.01f, 0));
     }
+    DrawMeshInstanced(sphereMesh, sphereModel.materials[0], transforms.data(), count);
 
+
+    EndMode3D();
+    DrawFPS(10, 10);
     EndDrawing();
   }
 
