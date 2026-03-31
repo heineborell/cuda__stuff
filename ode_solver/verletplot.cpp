@@ -73,16 +73,16 @@ std::vector<double> feSolver(std::vector<double> &A, std::vector<double> &x0,
   return X;
 }
 
-
 template <typename func>
-std::vector<double> verlet(const func &fn,const std::vector<double> &x0, double dt, int N) {
+std::vector<double> verlet(const func &fn, const std::vector<double> &x0,
+                           double dt, int N) {
   std::vector<double> X(static_cast<std::size_t>(N), 0.0);
   X[0] = x0[0]; // initial position
-  X[1] = x0[0] + x0[1] * dt + 1.0f / 2.0f * fn(x0[0]) * dt * dt; // position at t=1
+  X[1] =
+      x0[0] + x0[1] * dt + 1.0f / 2.0f * fn(x0[0]) * dt * dt; // position at t=1
 
-  for (int k{1}; k < N; ++k) {
-    X.data()[k + 1] = 2 * X.data()[k] - X.data()[k - 1] +
-                      dt * dt * fn(X.data()[k]);
+  for (std::size_t k{1}; k < N - 1; ++k) {
+    X[k + 1] = 2 * X[k] - X[k - 1] + dt * dt * fn(X[k]);
   }
   return X;
 }
@@ -98,8 +98,8 @@ int main() {
   float xRange{2.5f};
 
   int N{static_cast<int>(xRange / dt)};
-  auto rhs=[](double x){return (-1.0 / (x * x));};
-  std::vector<double> result{verlet(rhs,x0, dt, N)};
+  auto rhs = [](double x) { return (-1.0 / (x * x)); };
+  std::vector<double> result{verlet(rhs, x0, dt, N)};
   std::vector<float> resultFloat{castArray(result)};
 
   const int screenWidth{1960};
