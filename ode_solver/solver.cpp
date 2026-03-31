@@ -1,9 +1,8 @@
 #include "helper.h"
 #include <cmath>
 #include <cstddef>
-#include <iomanip>
+#include <functional>
 #include <iostream>
-#include <numbers>
 #include <vector>
 
 double leftRectangleArea(std::vector<double> &xk, double dx, int N) {
@@ -104,6 +103,10 @@ std::vector<double> verlet(std::vector<double> &x0, double dt, int N) {
   return X;
 }
 
+template <typename T>
+void derivativeForward(std::function<T(T)> &fn, std::vector<T> &array, T dt){
+std::cout << dt << '\n';}
+
 int main() {
   Timer t;
   double w{2 * M_PI}; // natural frequency
@@ -124,7 +127,6 @@ int main() {
   std::vector<double> feResult{feSolver(A, x0, dt, N)};
   std::vector<double> verletResult{verlet(x0, dt, N)};
   // printArray(verletResult);
-  std::cout << verletResult.data()[999] << '\n';
 
   std::cout << "total time is " << t.elapsed() << '\n';
   return 0;
