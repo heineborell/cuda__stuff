@@ -1,9 +1,14 @@
-#include "helper.h"
+#include "math.h"
+#include "raylib.h"
 #include <cmath>
 #include <cstddef>
 #include <functional>
+#include <iomanip>
 #include <iostream>
 #include <vector>
+
+const int screenWidth{1960};
+const int screenHeight{1200};
 
 template <typename T> void printArray(std::vector<T> const &arr) {
   for (T const &item : arr) {
@@ -89,36 +94,95 @@ template <typename T>
 void derivativeCenter(std::vector<T> &df, std::function<T(T)> &f,
                       std::vector<T> &timeArray, T dt) {
   std::size_t N{df.size()};
-  for (std::size_t i{0}; i < N; ++i) {
+  df[0] = (f(timeArray[1]) - f(timeArray[0])) / dt;
+  for (std::size_t i{1}; i < N; ++i) {
     df[i] = (f(timeArray[i + 1]) - f(timeArray[i - 1])) / (2 * dt);
   }
 }
-int main() {
-  Timer t;
 
+void plotter(int dimX, std::vector<float> &resultFloatx,
+             std::vector<float> &resultFloaty, float xRange, Color color) {
+  for (std::size_t i{0}; i < dimX - 1; ++i) {
+    float x1{resultFloatx[i]};     // current x value
+    float x2{resultFloatx[i + 1]}; // next x value
+    float y1{resultFloaty[i]};
+    float y2{resultFloaty[i + 1]};
+
+    // Map x and y values to screen coordinates
+    Vector2 start = {screenWidth / 2 + x1 * (screenWidth / (2 * xRange)),
+                     screenHeight / 2 - y1 * (screenHeight / (2 * xRange))};
+    Vector2 end = {screenWidth / 2 + x2 * (screenWidth / (2 * xRange)),
+                   screenHeight / 2 - y2 * (screenHeight / (2 * xRange))};
+    DrawLineEx(start, end, 1.5f, color);
+  }
+}
+int main() {
   using Real = float;
-  Real dt{1E-7}; // time step
-  Real T{1};     // total time
-  std::function<Real(Real)> fn{[](Real t) { return t * t * t; }};
-  std::function<Real(Real)> dfn{[](Real t) { return 3 * t * t; }};
+  Real dt{1E-1}; // time step
+  Real T{10};    // total time
+
+  // function
+  std::function<Real(Real)> fn{[](Real t) { return sin(t); }};
+  std::function<Real(Real)> dfn{[](Real t) { return cos(t); }};
   int N{static_cast<int>(T / dt)};
+
+  // define the derivative vectors
   std::vector<Real> time(N, 0.0);
   std::vector<Real> dfForward(N, 0.0);
   std::vector<Real> dfCenter(N, 0.0);
   std::vector<Real> dfExact(N, 0.0);
+
+  // populate time array
   timeVec(time, dt);
+
+  // calculate derivatives
   derivativeForward(dfForward, fn, time, dt);
   derivativeCenter(dfCenter, fn, time, dt);
   evaluate(dfExact, dfn, time);
+
   // printArray(df);
-  std::vector<Real> resultForward{vecSubtractCpu(dfExact, dfForward)};
-  std::vector<Real> resultCenter{vecSubtractCpu(dfExact, dfCenter)};
-  std::cout << std::abs(resultForward.back()) << " Forward Derivative error "
+  std::vector<Real> errorForward{vecSubtractCpu(dfExact, dfForward)};
+  std::vector<Real> errorCenter{vecSubtractCpu(dfExact, dfCenter)};
+  std::cout << std::abs(errorForward.back()) << " Forward Derivative error "
             << '\n';
-  std::cout << std::abs(resultCenter.back()) << " Forward Center error "
-            << '\n';
+  std::cout << std::abs(errorCenter.back()) << " Forward Center error " << '\n';
   // printArray(time);
 
-  std::cout << "total time is " << t.elapsed() << '\n';
+  // plotting range
+  float xRange{10.0f};
+
+  InitWindow(screenWidth, screenHeight, "X-Y plot");
+  SetTargetFPS(60);
+  const float zoomSpeed{1.1f};
+
+  while (!WindowShouldClose()) {
+    if (IsKeyPressed(KEY_UP))
+      xRange /= zoomSpeed; // zoom in
+    if (IsKeyPressed(KEY_DOWN))
+      xRange *= zoomSpeed; // zoom in
+    if (xRange < 0.1f)
+      xRange = 0.1f;
+    if (xRange > 50.0f)
+      xRange = 50.0f;
+
+    int dimX{10};
+    float step{xRange / dimX}; // step size for plotting
+
+    BeginDrawing();
+    ClearBackground(BLACK);
+    DrawFPS(10, 10);
+    DrawLine(screenWidth / 2, 0, screenWidth / 2, screenHeight, GRAY);
+    DrawLine(0, screenHeight / 2, screenWidth, screenHeight / 2, GRAY);
+
+    DrawText("Y", screenWidth / 2 + 5, 5, 20, GRAY);
+    DrawText("X", screenWidth - 20, screenHeight / 2 + 5, 20, GRAY);
+    plotter(N, time, dfExact, xRange, GREEN);
+    plotter(N, time, dfCenter, xRange, BLUE);
+    plotter(N, time, dfForward, xRange, RED);
+
+    EndDrawing();
+  }
+
+  CloseWindow();
   return 0;
 }
