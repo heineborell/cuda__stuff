@@ -96,8 +96,8 @@ void derivativeCenter(std::vector<T> &df, std::function<T(T)> &f,
 int main() {
   Timer t;
 
-  using Real = float;
-  Real dt{1E-7}; // time step
+  using Real = double;
+  Real dt{1E-3}; // time step
   Real T{1};     // total time
   std::function<Real(Real)> fn{[](Real t) { return t * t * t; }};
   std::function<Real(Real)> dfn{[](Real t) { return 3 * t * t; }};
