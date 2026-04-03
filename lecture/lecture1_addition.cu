@@ -25,7 +25,7 @@ void vecAddGpu(std::vector<float> &x, std::vector<float> &y,std::vector<float> &
   float * y_d;
   float * z_d;
 
-  //[IMPORTANT] So when you start float * x_d its just an adress in the CPU side but what you want is the x_d to hold is the adress on the GPU side. In order to change value of x_d to the GPU adress you need to feed in to cudaMalloc by its pointer so the parameters are a pointer to pointer. You do this because you want the exact adress (that is allocated) in the GPU because the next step is to cudaMemcopy which will copy the values on the CPU side (the data) to the adress on GPU which is x_d.
+  //[IMPORTANT] So when you start float * x_d its just an adress in the CPU side but what you want is the x_d to hold is the adress on the GPU side. In order to change value of x_d to the GPU adress you need to feed in to cudaMalloc by its pointer so the parameters are a pointer to pointer. You do this because you want the exact adress (that is allocated) in the GPU because the next step is to cudaMemcopy which will copy the values on the CPU side (the data) to the adress on GPU which is x_d. its void below so that it doesn't say anything about the type
   
   cudaMalloc((void**)(&x_d),N*sizeof(float));
   cudaMalloc((void**)(&y_d),N*sizeof(float));
@@ -39,7 +39,7 @@ void vecAddGpu(std::vector<float> &x, std::vector<float> &y,std::vector<float> &
 
   //Call a GPU function (launch a grid of threads) gotta tell how many blocks and how many threads for block.
   const unsigned int numThreadsPerBlock {512}; // again multiple of 32.
-  const unsigned int numBlocks =(N+512-1)/512; // since I have 512 threads per block and also N threads the N/512 will be number of blocks. also use a trick for the ceiling and launch extra threads!
+  const unsigned int numBlocks =(N+numThreadsPerBlock-1)/numThreadsPerBlock; // since I have 512 threads per block and also N threads the N/512 will be number of blocks. also use a trick for the ceiling and launch extra threads!
 
   vecAddKernel<<< numBlocks, numThreadsPerBlock >>>(x_d,y_d,z_d,N); // provide the configuration inside <<< >>>>. Now each thread will execute this function! (so no for loop or sth)
   cudaDeviceSynchronize(); // wait for GPU to finish!
