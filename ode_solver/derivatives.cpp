@@ -1,4 +1,3 @@
-#include "helper.h"
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -89,16 +88,16 @@ template <typename T>
 void derivativeCenter(std::vector<T> &df, std::function<T(T)> &f,
                       std::vector<T> &timeArray, T dt) {
   std::size_t N{df.size()};
-  for (std::size_t i{0}; i < N; ++i) {
+  df[0] = (f(timeArray[1]) - f(timeArray[0])) / dt;
+  for (std::size_t i{1}; i < N; ++i) {
     df[i] = (f(timeArray[i + 1]) - f(timeArray[i - 1])) / (2 * dt);
   }
 }
 int main() {
-  Timer t;
 
-  using Real = double;
-  Real dt{1E-3}; // time step
-  Real T{1};     // total time
+  using Real = float;
+  Real dt{0.00001}; // time step
+  Real T{1};        // total time
   std::function<Real(Real)> fn{[](Real t) { return t * t * t; }};
   std::function<Real(Real)> dfn{[](Real t) { return 3 * t * t; }};
   int N{static_cast<int>(T / dt)};
@@ -113,12 +112,11 @@ int main() {
   // printArray(df);
   std::vector<Real> resultForward{vecSubtractCpu(dfExact, dfForward)};
   std::vector<Real> resultCenter{vecSubtractCpu(dfExact, dfCenter)};
-  std::cout << std::abs(resultForward.back()) << " Forward Derivative error "
-            << '\n';
-  std::cout << std::abs(resultCenter.back()) << " Forward Center error "
-            << '\n';
+  std::cout << std::abs(resultForward.back())
+            << " Forward Derivative error with dt " << dt << '\n';
+  std::cout << std::abs(resultCenter.back())
+            << " Center Derivative error with dt " << dt << '\n';
   // printArray(time);
 
-  std::cout << "total time is " << t.elapsed() << '\n';
   return 0;
 }
