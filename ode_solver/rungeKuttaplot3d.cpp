@@ -128,11 +128,11 @@ void rungeKutta4Order(
       X3[y * dimX + (x + 1)] =
           rhs[y](X[0 * dimX + x] + dt / 2 * X2[0 * dimX + x],
                  X[dimX + x] + dt / 2 * X2[dimX + x],
-                 X[2 * dimX + x] + dt / 2 * X2[2 * dimX + x]); // f2
+                 X[2 * dimX + x] + dt / 2 * X2[2 * dimX + x]); // f3
       X4[y * dimX + (x + 1)] =
           rhs[y](X[0 * dimX + x] + dt / 2 * X3[0 * dimX + x],
                  X[dimX + x] + dt / 2 * X3[dimX + x],
-                 X[2 * dimX + x] + dt / 2 * X3[2 * dimX + x]); // f2
+                 X[2 * dimX + x] + dt / 2 * X3[2 * dimX + x]); // f4
 
       X[y * dimX + (x + 1)] =
           X[y * dimX + x] +
