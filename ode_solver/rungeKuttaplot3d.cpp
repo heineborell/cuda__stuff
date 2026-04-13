@@ -74,17 +74,73 @@ void showMatrix(std::vector<double> &vec, int gridDimX, int gridDimY) {
   }
 }
 
-void rk2firstOrder(
+void forwardEuler(
     std::vector<double> &X,
     std::vector<std::function<double(double, double, double)>> &rhs, double dt,
-    int dimX, int dimY) {
+    std::size_t dimX, std::size_t dimY) {
 
-  for (int x{0}; x < dimX - 1; ++x) {
-    for (int y{0}; y < dimY - 1; ++y) {
-      X.data()[y * dimX + (x + 1)] =
-          X.data()[y * dimX + x] + dt * rhs.data()[y](X.data()[0 * dimX + x],
-                                                      X.data()[dimX + x],
-                                                      X.data()[2 * dimX + x]);
+  for (std::size_t x{0}; x < dimX - 1; ++x) {
+    for (std::size_t y{0}; y < dimY - 1; ++y) {
+      X[y * dimX + (x + 1)] =
+          X[y * dimX + x] +
+          dt * rhs[y](X[0 * dimX + x], X[dimX + x], X[2 * dimX + x]);
+    }
+  }
+}
+
+void rungeKutta2Order(
+    std::vector<double> &X,
+    std::vector<std::function<double(double, double, double)>> &rhs, double dt,
+    std::size_t dimX, std::size_t dimY) {
+
+  std::vector<double> X1(dimX * dimY, 0.0);
+  for (std::size_t x{0}; x < dimX - 1; ++x) {
+    for (std::size_t y{0}; y < dimY - 1; ++y) {
+      X1[y * dimX + (x + 1)] =
+          X[y * dimX + x] + dt / 2 *
+                                rhs[y](X[0 * dimX + x], X[dimX + x],
+                                       X[2 * dimX + x]); // half-step
+      X[y * dimX + (x + 1)] =
+          X[y * dimX + x] +
+          dt * rhs[y](X1[0 * dimX + x], X1[dimX + x], X1[2 * dimX + x]);
+    }
+  }
+}
+
+void rungeKutta4Order(
+    std::vector<double> &X,
+    std::vector<std::function<double(double, double, double)>> &rhs, double dt,
+    std::size_t dimX, std::size_t dimY) {
+
+  std::vector<double> X1(dimX * dimY, 0.0);
+  std::vector<double> X2(dimX * dimY, 0.0);
+  std::vector<double> X3(dimX * dimY, 0.0);
+  std::vector<double> X4(dimX * dimY, 0.0);
+  for (std::size_t x{0}; x < dimX - 1; ++x) {
+    for (std::size_t y{0}; y < dimY - 1; ++y) {
+      X1[y * dimX + (x + 1)] =
+          X[y * dimX + x] + dt / 2 *
+                                rhs[y](X[0 * dimX + x], X[dimX + x],
+                                       X[2 * dimX + x]); // f1
+
+      X2[y * dimX + (x + 1)] =
+          X[y * dimX + x] + dt / 2 *
+                                rhs[y](X1[0 * dimX + x], X1[dimX + x],
+                                       X1[2 * dimX + x]); // f2
+      X3[y * dimX + (x + 1)] =
+          X[y * dimX + x] + dt / 2 *
+                                rhs[y](X2[0 * dimX + x], X2[dimX + x],
+                                       X2[2 * dimX + x]); // f3
+      X4[y * dimX + (x + 1)] =
+          X[y * dimX + x] + dt / 2 *
+                                rhs[y](X3[0 * dimX + x], X3[dimX + x],
+                                       X3[2 * dimX + x]); // half-step
+      //
+      X[y * dimX + (x + 1)] =
+          X[y * dimX + x] +
+          dt / 6 *
+              (X1[y * dimX + x] + 2 * X2[y * dimX + x] + 2 * X3[y * dimX + x] +
+               +X4[y * dimX + x]); // averaging
     }
   }
 }
@@ -93,13 +149,13 @@ int main() {
 
   // solver piece
 
-  double dt{0.01};
-  double totalT{150.0};
+  constexpr double dt{0.01};
+  constexpr double totalT{150.0};
   float xRange{4.0f};
 
-  const int dimX{static_cast<int>(totalT / dt)};
+  constexpr std::size_t dimX{static_cast<std::size_t>(totalT / dt)};
   // const int dimX{5};
-  constexpr int dimY{4};
+  constexpr std::size_t dimY{4};
 
   std::vector<std::function<double(double, double, double)>> rhs;
 
@@ -117,20 +173,31 @@ int main() {
 
   // create X,Y,Z and set initial value
 
-  std::vector<double> X(static_cast<std::size_t>(dimX * dimY), 0.0);
-  X.data()[0] = 1.0;       // x initial
-  X.data()[dimX] = 1.0;    // y initial
-  X.data()[2 * dimX] = 27; // z initial
+  std::vector<double> X(dimX * dimY, 0.0);
+  X[0] = 1.0;       // x initial
+  X[dimX] = 1.0;    // y initial
+  X[2 * dimX] = 27; // z initial
+
+  std::vector<double> X2(dimX * dimY, 0.0);
+  X2[0] = 1.0;       // x initial
+  X2[dimX] = 1.0;    // y initial
+  X2[2 * dimX] = 27; // z initial
+
+  std::vector<double> X4(dimX * dimY, 0.0);
+  X4[0] = 1.0;       // x initial
+  X4[dimX] = 1.0;    // y initial
+  X4[2 * dimX] = 27; // z initial
 
   // time vector tk
   timeVec(X, dimX, dimY, dt);
 
   // integrator
-  showMatrix(X, dimX, dimY);
-  std::cout << "the processed matrix" << '\n';
-  rk2firstOrder(X, rhs, dt, dimX, dimY);
+  forwardEuler(X, rhs, dt, dimX, dimY);
+  rungeKutta2Order(X2, rhs, dt, dimX, dimY);
+  rungeKutta4Order(X4, rhs, dt, dimX, dimY);
   std::vector<float> resultFloat{castArray(X)};
-  showMatrix(X, dimX, dimY);
+  std::vector<float> resultFloat2{castArray(X2)};
+  std::vector<float> resultFloat4{castArray(X4)};
 
   const int screenWidth{1960};
   const int screenHeight{1200};
@@ -146,8 +213,7 @@ int main() {
       (Vector3){0.0f, 1.0f, 0.0f}; // Camera up vector (rotation towards target)
   camera.fovy = 45.0f;             // Camera field-of-view Y
   camera.projection = CAMERA_PERSPECTIVE;
-  // DisableCursor();
-
+  DisableCursor();
 
   while (!WindowShouldClose()) {
     // Update
@@ -158,25 +224,42 @@ int main() {
       camera.target = (Vector3){0.0f, 0.0f, 0.0f};
     //----------------------------------------------------------------------------------
 
-
     BeginDrawing();
     ClearBackground(BLACK);
     BeginMode3D(camera);
     // Note that in raylib the up coordinate is y
 
     for (std::size_t i{0}; i < dimX - 1; ++i) {
-      float x1{resultFloat.data()[i]};     // current x value
-      float x2{resultFloat.data()[i + 1]}; // next x value
-      float y1{resultFloat.data()[dimX + i]};
-      float y2{resultFloat.data()[dimX + i + 1]};
-      float z1{resultFloat.data()[2*dimX + i]};
-      float z2{resultFloat.data()[2*dimX+ + i + 1]};
-DrawLine3D( {x1,y1,z1}, {x2,y2,z2}, GREEN); }
+      float x1{resultFloat[i]};     // current x value
+      float x2{resultFloat[i + 1]}; // next x value
+      float y1{resultFloat[dimX + i]};
+      float y2{resultFloat[dimX + i + 1]};
+      float z1{resultFloat[2 * dimX + i]};
+      float z2{resultFloat[2 * dimX + +i + 1]};
+      DrawLine3D({x1, y1, z1}, {x2, y2, z2}, GREEN);
+    }
+    for (std::size_t i{0}; i < dimX - 1; ++i) {
+      float x1{resultFloat2[i]};     // current x value
+      float x2{resultFloat2[i + 1]}; // next x value
+      float y1{resultFloat2[dimX + i]};
+      float y2{resultFloat2[dimX + i + 1]};
+      float z1{resultFloat2[2 * dimX + i]};
+      float z2{resultFloat2[2 * dimX + +i + 1]};
+      DrawLine3D({x1, y1, z1}, {x2, y2, z2}, BLUE);
+    }
+    for (std::size_t i{0}; i < dimX - 1; ++i) {
+      float x1{resultFloat4[i]};     // current x value
+      float x2{resultFloat4[i + 1]}; // next x value
+      float y1{resultFloat4[dimX + i]};
+      float y2{resultFloat4[dimX + i + 1]};
+      float z1{resultFloat4[2 * dimX + i]};
+      float z2{resultFloat4[2 * dimX + +i + 1]};
+      DrawLine3D({x1, y1, z1}, {x2, y2, z2}, RED);
+    }
     EndMode3D();
     DrawFPS(10, 10);
     EndDrawing();
   }
-showMatrix(X, dimX, dimY);
 
   CloseWindow();
   return 0;
