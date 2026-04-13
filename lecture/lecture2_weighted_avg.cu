@@ -116,7 +116,7 @@ int main() {
   std::cout << " GPU elapsed time " << t_totalgpu.elapsed() << '\n'; 
 
 
-  stbi_write_png("output_gray.png", width, height, 1, gray.data(), width * 1); // width
+  stbi_write_png("output_weighted.png", width, height, 1, gray.data(), width * 1); // width
   stbi_image_free(data);
 
   return 0;
