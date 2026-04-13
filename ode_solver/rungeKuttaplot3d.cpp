@@ -118,24 +118,22 @@ void rungeKutta4Order(
   std::vector<double> X4(dimX * dimY, 0.0);
   for (std::size_t x{0}; x < dimX - 1; ++x) {
     for (std::size_t y{0}; y < dimY - 1; ++y) {
-      X1[y * dimX + (x + 1)] =
-          X[y * dimX + x] + dt / 2 *
-                                rhs[y](X[0 * dimX + x], X[dimX + x],
-                                       X[2 * dimX + x]); // f1
+      X1[y * dimX + (x + 1)] = rhs[y](X[0 * dimX + x], X[dimX + x],
+                                      X[2 * dimX + x]); // f1
 
       X2[y * dimX + (x + 1)] =
-          X[y * dimX + x] + dt / 2 *
-                                rhs[y](X1[0 * dimX + x], X1[dimX + x],
-                                       X1[2 * dimX + x]); // f2
+          rhs[y](X[0 * dimX + x] + dt / 2 * X1[0 * dimX + x],
+                 X[dimX + x] + dt / 2 * X1[dimX + x],
+                 X[2 * dimX + x] + dt / 2 * X1[2 * dimX + x]); // f2
       X3[y * dimX + (x + 1)] =
-          X[y * dimX + x] + dt / 2 *
-                                rhs[y](X2[0 * dimX + x], X2[dimX + x],
-                                       X2[2 * dimX + x]); // f3
+          rhs[y](X[0 * dimX + x] + dt / 2 * X2[0 * dimX + x],
+                 X[dimX + x] + dt / 2 * X2[dimX + x],
+                 X[2 * dimX + x] + dt / 2 * X2[2 * dimX + x]); // f2
       X4[y * dimX + (x + 1)] =
-          X[y * dimX + x] + dt / 2 *
-                                rhs[y](X3[0 * dimX + x], X3[dimX + x],
-                                       X3[2 * dimX + x]); // half-step
-      //
+          rhs[y](X[0 * dimX + x] + dt / 2 * X3[0 * dimX + x],
+                 X[dimX + x] + dt / 2 * X3[dimX + x],
+                 X[2 * dimX + x] + dt / 2 * X3[2 * dimX + x]); // f2
+
       X[y * dimX + (x + 1)] =
           X[y * dimX + x] +
           dt / 6 *
