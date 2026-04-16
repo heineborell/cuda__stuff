@@ -156,7 +156,7 @@ int main() {
   constexpr std::size_t dimX{static_cast<std::size_t>(totalT / dt)};
   constexpr std::size_t dimY{3};
   constexpr int particleNumber{1000000};
-  std::vector<std::vector<double>> positionArrray;
+  std::vector<std::vector<double>> positionArray;
 
   std::vector<std::function<double(double, double, double)>> rhs;
 
@@ -181,7 +181,7 @@ int main() {
     X[0] = x0;        // x initial
     X[dimX] = y0;     // y initial
     X[2 * dimX] = z0; // z initial
-    positionArrray.push_back(X);
+    positionArray.push_back(X);
   }
 
   // Launch threads
