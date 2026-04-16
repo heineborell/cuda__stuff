@@ -1,23 +1,158 @@
 #include "math.h"
-#include "raylib.h"
-#include "raymath.h"
 #include <cstddef>
 #include <functional>
 #include <iomanip>
 #include <iostream>
 #include <vector>
 
+void printArray(std::vector<double> const &arr) {
+  for (double const &item : arr) {
+    std::cout << item << '\n';
+  }
+}
+
+std::vector<float> castArray(std::vector<double> &arr) {
+  std::size_t N{arr.size()};
+  std::vector<float> A(N, 0.0f);
+  for (std::size_t i{0}; i < N; ++i) {
+    A[i] = static_cast<float>(arr[i]);
+  }
+  return A;
+}
+std::vector<double> vectorScale(std::vector<double> &arr, double scalar) {
+  std::vector<double> scaled;
+  scaled.reserve(size(arr));
+  for (double &item : arr)
+    scaled.push_back(scalar * item);
+  return scaled;
+}
+
+// matrix multiply AB=C
+std::vector<double> mmCpu(std::vector<double> const &A,
+                          std::vector<double> const &B, int Nay, int Nbx,
+                          int K) {
+  // C dimensions: rows of A (Nay) x cols of B (Nbx) , K is common dim
+  std::vector<double> C(static_cast<std::size_t>(Nay * Nbx), 0.0);
+
+  for (int y = 0; y < Nay; ++y) {
+    for (int x = 0; x < Nbx; ++x) {
+      double sum = 0.0;
+      for (int i = 0; i < K; ++i) {
+        sum += A.data()[y * K + i] * B.data()[i * Nbx + x];
+      }
+      C.data()[y * Nbx + x] = sum;
+    }
+  }
+  return C;
+}
+
+// vectorAdd addition
+std::vector<double> vecAddCpu(std::vector<double> const &x,
+                              std::vector<double> const &y) {
+
+  std::size_t N{x.size()};
+  std::vector<double> z(N, 0.0);
+  for (std::size_t i{0}; i < N; ++i)
+    z[i] = x[i] + y[i];
+  return z;
+}
+
+void timeVec(std::vector<double> &vec, int gridDimX, int gridDimY, double dt) {
+  int N{static_cast<int>(vec.size())};
+  for (int i{gridDimX * (gridDimY - 1)}; i < N; ++i)
+    vec.data()[i + 1] = vec.data()[i] + dt;
+}
+
+void showMatrix(std::vector<double> &vec, int gridDimX, int gridDimY) {
+  int N{static_cast<int>(vec.size())};
+  std::cout << std::setprecision(3);
+  for (int i{0}; i < N; ++i) {
+    if (i % gridDimX == 0)
+      std::cout << '\n';
+    std::cout << vec[i] << " ";
+  }
+}
+
+void forwardEuler(
+    std::vector<double> &X,
+    std::vector<std::function<double(double, double, double)>> &rhs, double dt,
+    std::size_t dimX, std::size_t dimY) {
+
+  for (std::size_t x{0}; x < dimX - 1; ++x) {
+    for (std::size_t y{0}; y < dimY - 1; ++y) {
+      X[y * dimX + (x + 1)] =
+          X[y * dimX + x] +
+          dt * rhs[y](X[0 * dimX + x], X[dimX + x], X[2 * dimX + x]);
+    }
+  }
+}
+
+void rungeKutta2Order(
+    std::vector<double> &X,
+    std::vector<std::function<double(double, double, double)>> &rhs, double dt,
+    std::size_t dimX, std::size_t dimY) {
+
+  std::vector<double> X1(dimX * dimY, 0.0);
+  for (std::size_t x{0}; x < dimX - 1; ++x) {
+    for (std::size_t y{0}; y < dimY - 1; ++y) {
+      X1[y * dimX + (x + 1)] =
+          X[y * dimX + x] + dt / 2 *
+                                rhs[y](X[0 * dimX + x], X[dimX + x],
+                                       X[2 * dimX + x]); // half-step
+      X[y * dimX + (x + 1)] =
+          X[y * dimX + x] +
+          dt * rhs[y](X1[0 * dimX + x], X1[dimX + x], X1[2 * dimX + x]);
+    }
+  }
+}
+
+void rungeKutta4Order(
+    std::vector<double> &X,
+    std::vector<std::function<double(double, double, double)>> &rhs, double dt,
+    std::size_t dimX, std::size_t dimY) {
+
+  std::vector<double> X1(dimX * dimY, 0.0);
+  std::vector<double> X2(dimX * dimY, 0.0);
+  std::vector<double> X3(dimX * dimY, 0.0);
+  std::vector<double> X4(dimX * dimY, 0.0);
+  for (std::size_t x{0}; x < dimX - 1; ++x) {
+    for (std::size_t y{0}; y < dimY - 1; ++y) {
+      X1[y * dimX + (x + 1)] = rhs[y](X[0 * dimX + x], X[dimX + x],
+                                      X[2 * dimX + x]); // f1
+
+      X2[y * dimX + (x + 1)] =
+          rhs[y](X[0 * dimX + x] + dt / 2 * X1[0 * dimX + x],
+                 X[dimX + x] + dt / 2 * X1[dimX + x],
+                 X[2 * dimX + x] + dt / 2 * X1[2 * dimX + x]); // f2
+      X3[y * dimX + (x + 1)] =
+          rhs[y](X[0 * dimX + x] + dt / 2 * X2[0 * dimX + x],
+                 X[dimX + x] + dt / 2 * X2[dimX + x],
+                 X[2 * dimX + x] + dt / 2 * X2[2 * dimX + x]); // f3
+      X4[y * dimX + (x + 1)] =
+          rhs[y](X[0 * dimX + x] + dt / 2 * X3[0 * dimX + x],
+                 X[dimX + x] + dt / 2 * X3[dimX + x],
+                 X[2 * dimX + x] + dt / 2 * X3[2 * dimX + x]); // f4
+
+      X[y * dimX + (x + 1)] =
+          X[y * dimX + x] +
+          dt / 6 *
+              (X1[y * dimX + x] + 2 * X2[y * dimX + x] + 2 * X3[y * dimX + x] +
+               +X4[y * dimX + x]); // averaging
+    }
+  }
+}
+
 int main() {
 
   // solver piece
 
-  double dt{0.01};
-  double totalT{150.0};
+  constexpr double dt{0.01};
+  constexpr double totalT{150.0};
   float xRange{4.0f};
 
-  const int dimX{static_cast<int>(totalT / dt)};
+  constexpr std::size_t dimX{static_cast<std::size_t>(totalT / dt)};
   // const int dimX{5};
-  constexpr int dimY{4};
+  constexpr std::size_t dimY{4};
 
   std::vector<std::function<double(double, double, double)>> rhs;
 
@@ -33,84 +168,36 @@ int main() {
   rhs.push_back(
       [beta](double x, double y, double z) { return x * y - beta * z; });
 
+  // create X,Y,Z and set initial value
+
+  std::vector<double> X(dimX * dimY, 0.0);
+  X[0] = 1.0;       // x initial
+  X[dimX] = 1.0;    // y initial
+  X[2 * dimX] = 27; // z initial
+
+  std::vector<double> X2(dimX * dimY, 0.0);
+  X2[0] = 1.0;       // x initial
+  X2[dimX] = 1.0;    // y initial
+  X2[2 * dimX] = 27; // z initial
+
+  std::vector<double> X4(dimX * dimY, 0.0);
+  X4[0] = 1.0;       // x initial
+  X4[dimX] = 1.0;    // y initial
+  X4[2 * dimX] = 27; // z initial
+
+  // time vector tk
+  timeVec(X, dimX, dimY, dt);
+
+  // integrator
+  forwardEuler(X, rhs, dt, dimX, dimY);
+  rungeKutta2Order(X2, rhs, dt, dimX, dimY);
+  rungeKutta4Order(X4, rhs, dt, dimX, dimY);
+  std::vector<float> resultFloat{castArray(X)};
+  std::vector<float> resultFloat2{castArray(X2)};
+  std::vector<float> resultFloat4{castArray(X4)};
+
   const int screenWidth{1960};
   const int screenHeight{1200};
-  InitWindow(screenWidth, screenHeight, "runge kutta 2");
-  SetTargetFPS(60);
-  const float zoomSpeed{1.1f};
 
-  Camera3D camera = {0};
-  camera.position = (Vector3){80.0f, 80.0f, 80.0f};
-  camera.target = (Vector3){0.0f, 0.0f, 0.0f};
-  camera.up = (Vector3){0.0f, 1.0f, 0.0f};
-  camera.fovy = 45.0f;
-  camera.projection = CAMERA_PERSPECTIVE;
-  // DisableCursor();
-
-  const int count = 50000;
-
-  // 1. Setup the Mesh and Material
-  Mesh sphereMesh = GenMeshSphere(0.05f, 16, 16);
-  Model sphereModel = LoadModelFromMesh(sphereMesh);
-
-  // 1. Load the simple instancing shader
-  // We use NULL for the fragment shader to use raylib's default "unlit" look
-  Shader shader = LoadShader("shaders/base_instancing.vs", NULL);
-
-  // 2. Link the instance attribute
-  shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(shader, "mvp");
-  shader.locs[SHADER_LOC_MATRIX_MODEL] =
-      GetShaderLocationAttrib(shader, "instanceTransform");
-
-  // 3. Assign to model
-  sphereModel.materials[0].shader = shader;
-  sphereModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].color =
-      GREEN; // All spheres will be green or whatever you choose
-
-  // 2. Prepare the Transformation Matrices
-  std::vector<Matrix> transforms(count);
-  for (int i = 0; i < count; i++) {
-    // Create a random position for each sphere
-    Vector3 pos = {(float)GetRandomValue(-50, 50),
-                   (float)GetRandomValue(-50, 50),
-                   (float)GetRandomValue(-50, 50)};
-    transforms[i] = MatrixTranslate(pos.x, pos.y, pos.z);
-  }
-
-  auto test{[](float time) { return time; }};
-  while (!WindowShouldClose()) {
-    // Update
-    //----------------------------------------------------------------------------------
-    UpdateCamera(&camera, CAMERA_THIRD_PERSON);
-
-    if (IsKeyPressed(KEY_Z))
-      camera.target = (Vector3){0.0f, 0.0f, 0.0f};
-    //----------------------------------------------------------------------------------
-
-    BeginDrawing();
-    ClearBackground(BLACK);
-    BeginMode3D(camera);
-
-    // Optional: Move spheres every frame
-    for (int i = 0; i < count; i++) {
-      // float time = (float)GetFrameTime();
-      float time = 0.01;
-      float x{transforms[i].m12};
-      float y{transforms[i].m13};
-      float z{transforms[i].m14};
-      transforms[i] = MatrixMultiply(transforms[i],
-                                     MatrixTranslate(time * rhs[0](x, y, z),
-                                                     time * rhs[1](x, y, z),
-                                                     time * rhs[2](x, y, z)));
-    }
-    DrawMeshInstanced(sphereMesh, sphereModel.materials[0], transforms.data(),
-                      count);
-
-    EndMode3D();
-    DrawFPS(10, 10);
-    EndDrawing();
-  }
-
-  CloseWindow();
   return 0;
 }
