@@ -1,3 +1,5 @@
+#include "Random.h"
+#include "helper.h"
 #include "math.h"
 #include <cstddef>
 #include <functional>
@@ -143,16 +145,16 @@ void rungeKutta4Order(
 }
 
 int main() {
+  Timer timeCpu;
 
   // solver piece
 
-  constexpr double dt{0.01};
-  constexpr double totalT{150.0};
-  float xRange{4.0f};
+  constexpr double dt{0.001};
+  constexpr double totalT{1.0};
 
   constexpr std::size_t dimX{static_cast<std::size_t>(totalT / dt)};
-  // const int dimX{5};
-  constexpr std::size_t dimY{4};
+  constexpr std::size_t dimY{3};
+  std::vector<std::vector<double>> positionArrray;
 
   std::vector<std::function<double(double, double, double)>> rhs;
 
@@ -169,35 +171,23 @@ int main() {
       [beta](double x, double y, double z) { return x * y - beta * z; });
 
   // create X,Y,Z and set initial value
-
-  std::vector<double> X(dimX * dimY, 0.0);
-  X[0] = 1.0;       // x initial
-  X[dimX] = 1.0;    // y initial
-  X[2 * dimX] = 27; // z initial
-
-  std::vector<double> X2(dimX * dimY, 0.0);
-  X2[0] = 1.0;       // x initial
-  X2[dimX] = 1.0;    // y initial
-  X2[2 * dimX] = 27; // z initial
-
-  std::vector<double> X4(dimX * dimY, 0.0);
-  X4[0] = 1.0;       // x initial
-  X4[dimX] = 1.0;    // y initial
-  X4[2 * dimX] = 27; // z initial
-
-  // time vector tk
-  timeVec(X, dimX, dimY, dt);
+  int particleNumber{2000000};
+  for (int i{0}; i < particleNumber; ++i) {
+    std::vector<double> X(dimX * dimY, 0.0);
+    double x0{Random::get(1, 200) * 0.1};
+    double y0{Random::get(1, 200) * 0.1};
+    double z0{Random::get(1, 200) * 0.1};
+    X[0] = x0;        // x initial
+    X[dimX] = y0;     // y initial
+    X[2 * dimX] = z0; // z initial
+    positionArrray.push_back(X);
+  }
 
   // integrator
-  forwardEuler(X, rhs, dt, dimX, dimY);
-  rungeKutta2Order(X2, rhs, dt, dimX, dimY);
-  rungeKutta4Order(X4, rhs, dt, dimX, dimY);
-  std::vector<float> resultFloat{castArray(X)};
-  std::vector<float> resultFloat2{castArray(X2)};
-  std::vector<float> resultFloat4{castArray(X4)};
+  for (int i{0}; i < particleNumber; ++i)
+    rungeKutta4Order(positionArrray.data()[i], rhs, dt, dimX, dimY);
 
-  const int screenWidth{1960};
-  const int screenHeight{1200};
+  std::cout << timeCpu.elapsed() << " seconds elapsed." << '\n';
 
   return 0;
 }
