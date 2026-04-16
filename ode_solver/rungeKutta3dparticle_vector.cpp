@@ -114,34 +114,34 @@ void rungeKutta4Order(
     std::vector<std::function<double(double, double, double)>> &rhs, double dt,
     std::size_t dimX, std::size_t dimY) {
 
-  std::vector<double> X1(dimX * dimY, 0.0);
-  std::vector<double> X2(dimX * dimY, 0.0);
-  std::vector<double> X3(dimX * dimY, 0.0);
-  std::vector<double> X4(dimX * dimY, 0.0);
+  std::array<double, 3> X1{};
+  std::array<double, 3> X2{};
+  std::array<double, 3> X3{};
+  std::array<double, 3> X4{};
   for (std::size_t x{0}; x < dimX - 1; ++x) {
     for (std::size_t y{0}; y < dimY - 1; ++y) {
-      X1[y * dimX + (x + 1)] = rhs[y](X[0 * dimX + x], X[dimX + x],
-                                      X[2 * dimX + x]); // f1
+      X1[y] = rhs[y](X[0 * dimX + x], X[dimX + x], X[2 * dimX + x]);
+    } // f1
+    for (std::size_t y{0}; y < dimY - 1; ++y) {
+      X2[y] =
+          rhs[y](X[0 * dimX + x] + dt / 2 * X1[0], X[dimX + x] + dt / 2 * X1[1],
+                 X[2 * dimX + x] + dt / 2 * X1[2]);
+    } // f2
+    for (std::size_t y{0}; y < dimY - 1; ++y) {
+      X3[y] =
+          rhs[y](X[0 * dimX + x] + dt / 2 * X2[0], X[dimX + x] + dt / 2 * X2[1],
+                 X[2 * dimX + x] + dt / 2 * X2[2]);
+    } // f3
+    for (std::size_t y{0}; y < dimY - 1; ++y) {
+      X4[y] =
+          rhs[y](X[0 * dimX + x] + dt / 2 * X3[0], X[dimX + x] + dt / 2 * X3[1],
+                 X[2 * dimX + x] + dt / 2 * X3[2]);
+    } // f4
 
-      X2[y * dimX + (x + 1)] =
-          rhs[y](X[0 * dimX + x] + dt / 2 * X1[0 * dimX + x],
-                 X[dimX + x] + dt / 2 * X1[dimX + x],
-                 X[2 * dimX + x] + dt / 2 * X1[2 * dimX + x]); // f2
-      X3[y * dimX + (x + 1)] =
-          rhs[y](X[0 * dimX + x] + dt / 2 * X2[0 * dimX + x],
-                 X[dimX + x] + dt / 2 * X2[dimX + x],
-                 X[2 * dimX + x] + dt / 2 * X2[2 * dimX + x]); // f3
-      X4[y * dimX + (x + 1)] =
-          rhs[y](X[0 * dimX + x] + dt / 2 * X3[0 * dimX + x],
-                 X[dimX + x] + dt / 2 * X3[dimX + x],
-                 X[2 * dimX + x] + dt / 2 * X3[2 * dimX + x]); // f4
-
+    for (std::size_t y{0}; y < dimY - 1; ++y) {
       X[y * dimX + (x + 1)] =
-          X[y * dimX + x] +
-          dt / 6 *
-              (X1[y * dimX + x] + 2 * X2[y * dimX + x] + 2 * X3[y * dimX + x] +
-               +X4[y * dimX + x]); // averaging
-    }
+          X[y * dimX + x] + dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
+    } // averaging
   }
 }
 
@@ -188,7 +188,7 @@ int main() {
   std::vector<std::thread> threads;
   for (int i{0}; i < particleNumber; ++i) {
     threads.push_back(std::thread(rungeKutta4Order,
-                                  std::ref(positionArrray.data()[i]),
+                                  std::ref(positionArray.data()[i]),
                                   std::ref(rhs), dt, dimX, dimY));
   }
   // Join threads before program execution terminates
