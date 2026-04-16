@@ -5,6 +5,7 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <thread>
 #include <vector>
 
 void printArray(std::vector<double> const &arr) {
@@ -154,6 +155,7 @@ int main() {
 
   constexpr std::size_t dimX{static_cast<std::size_t>(totalT / dt)};
   constexpr std::size_t dimY{3};
+  constexpr std::size_t particleNumber{1000000};
   std::vector<std::vector<double>> positionArrray;
 
   std::vector<std::function<double(double, double, double)>> rhs;
@@ -171,7 +173,6 @@ int main() {
       [beta](double x, double y, double z) { return x * y - beta * z; });
 
   // create X,Y,Z and set initial value
-  int particleNumber{2000000};
   for (int i{0}; i < particleNumber; ++i) {
     std::vector<double> X(dimX * dimY, 0.0);
     double x0{Random::get(1, 200) * 0.1};
@@ -183,9 +184,17 @@ int main() {
     positionArrray.push_back(X);
   }
 
-  // integrator
-  for (int i{0}; i < particleNumber; ++i)
-    rungeKutta4Order(positionArrray.data()[i], rhs, dt, dimX, dimY);
+  // Launch threads
+  std::vector<std::thread> threads;
+  for (int i{0}; i < particleNumber; ++i) {
+    threads.push_back(std::thread(rungeKutta4Order,
+                                  std::ref(positionArrray.data()[i]),
+                                  std::ref(rhs), dt, dimX, dimY));
+  }
+  // Join threads before program execution terminates
+  for (auto &th : threads) {
+    th.join();
+  }
 
   std::cout << timeCpu.elapsed() << " seconds elapsed." << '\n';
 
