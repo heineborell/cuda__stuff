@@ -9,7 +9,7 @@
 #include <thread>
 #include <vector>
 
-constexpr std::size_t particleNumber{50};
+constexpr std::size_t particleNumber{1000000};
 constexpr double dt{0.001};
 constexpr double totalT{1.0};
 constexpr std::size_t dimT{static_cast<std::size_t>(totalT / dt)};
@@ -162,28 +162,42 @@ void rungeKutta4OrderCpu(
   std::array<double, 3> X2{};
   std::array<double, 3> X3{};
   std::array<double, 3> X4{};
-  for (std::size_t y{0}; y < dimY - 1; ++y) {
-    X1[y] =
-        rhs[y](X[0 * dimT * particleNumber + i], X[dimT * particleNumber + i],
-               X[2 * dimT * particleNumber + i]); // f1
+  for (std::size_t x{0}; x < dimT - 1; ++x) {
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X1[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)],
+                     X[dimT * particleNumber + (x * particleNumber + 1)],
+                     X[2 * dimT * particleNumber + (x * particleNumber + i)]);
+    } // f1
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X2[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X1[0],
+                     X[dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X1[1],
+                     X[2 * dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X1[2]);
+    } // f2
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X3[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X2[0],
+                     X[dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X2[1],
+                     X[2 * dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X2[2]);
+    } // f3
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X4[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X3[0],
+                     X[dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X3[1],
+                     X[2 * dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X3[2]);
+    } // f4
 
-    X2[y] = rhs[y](X[0 * dimT * particleNumber + i] + dt / 2 * X1[0 * dimT + x],
-                   X[dimT + x] + dt / 2 * X1[dimT + x],
-                   X[2 * dimT + x] + dt / 2 * X1[2 * dimT + x]); // f2
-    X3[y * dimT + (x + 1)] =
-        rhs[y](X[0 * dimT + x] + dt / 2 * X2[0 * dimT + x],
-               X[dimT + x] + dt / 2 * X2[dimT + x],
-               X[2 * dimT + x] + dt / 2 * X2[2 * dimT + x]); // f3
-    X4[y * dimT + (x + 1)] =
-        rhs[y](X[0 * dimT + x] + dt / 2 * X3[0 * dimT + x],
-               X[dimT + x] + dt / 2 * X3[dimT + x],
-               X[2 * dimT + x] + dt / 2 * X3[2 * dimT + x]); // f4
-
-    X[y * dimT + (x + 1)] =
-        X[y * dimT + x] +
-        dt / 6 *
-            (X1[y * dimT + x] + 2 * X2[y * dimT + x] + 2 * X3[y * dimT + x] +
-             +X4[y * dimT + x]); // averaging
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X[y * dimT * particleNumber + ((x + 1) * particleNumber + i)] =
+          X[y * dimT * particleNumber + (x * particleNumber + i)] +
+          dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
+    } // averaging
   }
 }
 
@@ -263,16 +277,15 @@ int main() {
   }
 
   // // Launch threads
-  // std::vector<std::thread> threads;
-  // for (int i{0}; i < particleNumber; ++i) {
-  //   threads.push_back(std::thread(rungeKutta4Order,
-  //                                 std::ref(positionArrray.data()[i]),
-  //                                 std::ref(rhs), dt, dimT, dimY));
-  // }
-  // // Join threads before program execution terminates
-  // for (auto &th : threads) {
-  //   th.join();
-  // }
+  std::vector<std::thread> threads;
+  for (int i{0}; i < particleNumber; ++i) {
+    threads.push_back(
+        std::thread(rungeKutta4OrderCpu, std::ref(X), std::ref(rhs), i, dt));
+  }
+  // Join threads before program execution terminates
+  for (auto &th : threads) {
+    th.join();
+  }
 
   std::cout << timeCpu.elapsed() << " seconds elapsed." << '\n';
 
