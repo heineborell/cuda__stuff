@@ -10,7 +10,7 @@
 #include <thread>
 #include <vector>
 
-constexpr std::size_t particleNumber{1000};
+constexpr std::size_t particleNumber{500000};
 constexpr double dt{0.001};
 constexpr double totalT{1.0};
 constexpr std::size_t dimT{static_cast<std::size_t>(totalT / dt)};
@@ -164,39 +164,33 @@ void rungeKutta4OrderCpu(
   std::array<double, 3> X3{};
   std::array<double, 3> X4{};
   for (std::size_t x{0}; x < dimT - 1; ++x) {
+
+    const std::size_t offset = x * particleNumber + i;
+    const std::size_t stride = dimT * particleNumber;
+
+    const double valX = X[0 * stride + offset];
+    const double valY = X[1 * stride + offset];
+    const double valZ = X[2 * stride + offset];
+
     for (std::size_t y{0}; y < dimY; ++y) {
-      X1[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)],
-                     X[dimT * particleNumber + (x * particleNumber + i)],
-                     X[2 * dimT * particleNumber + (x * particleNumber + i)]);
+      X1[y] = rhs[y](valX, valY, valZ);
     } // f1
     for (std::size_t y{0}; y < dimY; ++y) {
-      X2[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X1[0],
-                     X[dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X1[1],
-                     X[2 * dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X1[2]);
+      X2[y] = rhs[y](valX + dt / 2 * X1[0], valY + dt / 2 * X1[1],
+                     valZ + dt / 2 * X1[2]);
     } // f2
     for (std::size_t y{0}; y < dimY; ++y) {
-      X3[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X2[0],
-                     X[dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X2[1],
-                     X[2 * dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X2[2]);
+      X3[y] = rhs[y](valX + dt / 2 * X2[0], valY + dt / 2 * X2[1],
+                     valZ + dt / 2 * X2[2]);
     } // f3
     for (std::size_t y{0}; y < dimY; ++y) {
-      X4[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X3[0],
-                     X[dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X3[1],
-                     X[2 * dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X3[2]);
+      X4[y] = rhs[y](valX + dt / 2 * X3[0], valY + dt / 2 * X3[1],
+                     valZ + dt / 2 * X3[2]);
     } // f4
 
     for (std::size_t y{0}; y < dimY; ++y) {
-      X[y * dimT * particleNumber + ((x + 1) * particleNumber + i)] =
-          X[y * dimT * particleNumber + (x * particleNumber + i)] +
+      X[y * stride + ((x + 1) * particleNumber + i)] =
+          X[y * stride + offset] +
           dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
     } // averaging
   }
@@ -275,7 +269,7 @@ int main() {
     BeginMode3D(camera);
     // Note that in raylib the up coordinate is y
 
-    for (std::size_t i{0}; i < particleNumber; ++i) {
+    for (std::size_t i{0}; i < 100; ++i) {
       for (std::size_t t{0}; t < dimT - 1; ++t) {
         float x1{resultFloat[0 * dimT * particleNumber +
                              (t * particleNumber + i)]}; // current x value

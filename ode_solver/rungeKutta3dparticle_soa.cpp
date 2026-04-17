@@ -9,7 +9,7 @@
 #include <thread>
 #include <vector>
 
-constexpr std::size_t particleNumber{1000000};
+constexpr std::size_t particleNumber{500000};
 constexpr double dt{0.001};
 constexpr double totalT{1.0};
 constexpr std::size_t dimT{static_cast<std::size_t>(totalT / dt)};
@@ -117,42 +117,6 @@ void rungeKutta2Order(
   }
 }
 
-void rungeKutta4Order(
-    std::vector<double> &X,
-    std::vector<std::function<double(double, double, double)>> &rhs, double dt,
-    std::size_t dimX, std::size_t dimY) {
-
-  std::vector<double> X1(dimX * dimY, 0.0);
-  std::vector<double> X2(dimX * dimY, 0.0);
-  std::vector<double> X3(dimX * dimY, 0.0);
-  std::vector<double> X4(dimX * dimY, 0.0);
-  for (std::size_t x{0}; x < dimX - 1; ++x) {
-    for (std::size_t y{0}; y < dimY - 1; ++y) {
-      X1[y * dimX + (x + 1)] = rhs[y](X[0 * dimX + x], X[dimX + x],
-                                      X[2 * dimX + x]); // f1
-
-      X2[y * dimX + (x + 1)] =
-          rhs[y](X[0 * dimX + x] + dt / 2 * X1[0 * dimX + x],
-                 X[dimX + x] + dt / 2 * X1[dimX + x],
-                 X[2 * dimX + x] + dt / 2 * X1[2 * dimX + x]); // f2
-      X3[y * dimX + (x + 1)] =
-          rhs[y](X[0 * dimX + x] + dt / 2 * X2[0 * dimX + x],
-                 X[dimX + x] + dt / 2 * X2[dimX + x],
-                 X[2 * dimX + x] + dt / 2 * X2[2 * dimX + x]); // f3
-      X4[y * dimX + (x + 1)] =
-          rhs[y](X[0 * dimX + x] + dt / 2 * X3[0 * dimX + x],
-                 X[dimX + x] + dt / 2 * X3[dimX + x],
-                 X[2 * dimX + x] + dt / 2 * X3[2 * dimX + x]); // f4
-
-      X[y * dimX + (x + 1)] =
-          X[y * dimX + x] +
-          dt / 6 *
-              (X1[y * dimX + x] + 2 * X2[y * dimX + x] + 2 * X3[y * dimX + x] +
-               +X4[y * dimX + x]); // averaging
-    }
-  }
-}
-
 void rungeKutta4OrderCpu(
     std::vector<double> &X,
     std::vector<std::function<double(double, double, double)>> &rhs,
@@ -163,88 +127,79 @@ void rungeKutta4OrderCpu(
   std::array<double, 3> X3{};
   std::array<double, 3> X4{};
   for (std::size_t x{0}; x < dimT - 1; ++x) {
+
+    const std::size_t offset = x * particleNumber + i;
+    const std::size_t stride = dimT * particleNumber;
+
+    const double valX = X[0 * stride + offset];
+    const double valY = X[1 * stride + offset];
+    const double valZ = X[2 * stride + offset];
+
     for (std::size_t y{0}; y < dimY; ++y) {
-      X1[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)],
-                     X[dimT * particleNumber + (x * particleNumber + 1)],
-                     X[2 * dimT * particleNumber + (x * particleNumber + i)]);
+      X1[y] = rhs[y](valX, valY, valZ);
     } // f1
     for (std::size_t y{0}; y < dimY; ++y) {
-      X2[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X1[0],
-                     X[dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X1[1],
-                     X[2 * dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X1[2]);
+      X2[y] = rhs[y](valX + dt / 2 * X1[0], valY + dt / 2 * X1[1],
+                     valZ + dt / 2 * X1[2]);
     } // f2
     for (std::size_t y{0}; y < dimY; ++y) {
-      X3[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X2[0],
-                     X[dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X2[1],
-                     X[2 * dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X2[2]);
+      X3[y] = rhs[y](valX + dt / 2 * X2[0], valY + dt / 2 * X2[1],
+                     valZ + dt / 2 * X2[2]);
     } // f3
     for (std::size_t y{0}; y < dimY; ++y) {
-      X4[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X3[0],
-                     X[dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X3[1],
-                     X[2 * dimT * particleNumber + (x * particleNumber + i)] +
-                         dt / 2 * X3[2]);
+      X4[y] = rhs[y](valX + dt / 2 * X3[0], valY + dt / 2 * X3[1],
+                     valZ + dt / 2 * X3[2]);
     } // f4
 
     for (std::size_t y{0}; y < dimY; ++y) {
-      X[y * dimT * particleNumber + ((x + 1) * particleNumber + i)] =
-          X[y * dimT * particleNumber + (x * particleNumber + i)] +
+      X[y * stride + ((x + 1) * particleNumber + i)] =
+          X[y * stride + offset] +
           dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
     } // averaging
   }
 }
 
-// void rungeKutta4OrderCpu(
-//     std::vector<double> &X,
-//     std::vector<std::function<double(double, double, double)>> &rhs,
-//     std::size_t i, double dt) {
-//
-//   constexpr std::size_t arraySize{dimY * dimT};
-//   std::array<double, arraySize> X1{};
-//   std::array<double, arraySize> X2{};
-//   std::array<double, arraySize> X3{};
-//   std::array<double, arraySize> X4{};
-//   for (std::size_t x{0}; x < particleNumber - 1; ++x) {
-//     for (std::size_t y{0}; y < dimY - 1; ++y) {
-//       X1[y * dimT + (x + 1)] =
-//           rhs[y](X[0 * dimT * particleNumber + (x * dimT + i)],
-//                  X[dimT * particleNumber + (x * dimT + i)],
-//                  X[2 * dimT * particleNumber + (x * dimT + i)]); // f1
-//
-//       X2[y * dimT + (x + 1)] = rhs[y](
-//           X[0 * dimT * particleNumber + i] + dt / 2 * X1[0 * dimT + x],
-//           X[dimT * particleNumber + i] + dt / 2 * X1[dimT + x],
-//           X[2 * dimT * particleNumber + i] + dt / 2 * X1[2 * dimT + x]); //
-//           f2
-//
-//       X3[y * dimT + (x + 1)] = rhs[y](
-//           X[0 * dimT * particleNumber + i] + dt / 2 * X2[0 * dimT + x],
-//           X[dimT * particleNumber + i] + dt / 2 * X2[dimT + x],
-//           X[2 * dimT * particleNumber + i] + dt / 2 * X2[2 * dimT + x]); //
-//           f3
-//
-//       X4[y * dimT + (x + 1)] = rhs[y](
-//           X[0 * dimT * particleNumber + i] + dt / 2 * X3[0 * dimT + x],
-//           X[dimT * particleNumber + i] + dt / 2 * X3[dimT + x],
-//           X[2 * dimT * particleNumber + i] + dt / 2 * X3[2 * dimT + x]); //
-//           f4
-//
-//       X[y * dimT * particleNumber + (dimT * i)] =
-//           X[y * dimT + x] +
-//           dt / 6 *
-//               (X1[y * dimT + x] + 2 * X2[y * dimT + x] + 2 * X3[y * dimT + x]
-//               +
-//                +X4[y * dimT + x]); // averaging
-//     }
-//   }
-// }
+void rungeKutta4OrderCpu2(
+    std::vector<double> &X,
+    std::vector<std::function<double(double, double, double)>> &rhs,
+    std::size_t i, double dt) {
+
+  std::array<double, 3> X1{};
+  std::array<double, 3> X2{};
+  std::array<double, 3> X3{};
+  std::array<double, 3> X4{};
+  for (std::size_t x{0}; x < dimT - 1; ++x) {
+
+    const std::size_t offset = i * dimT + x;
+    const std::size_t stride = dimT * particleNumber;
+
+    const double valX = X[0 * stride + offset];
+    const double valY = X[1 * stride + offset];
+    const double valZ = X[2 * stride + offset];
+
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X1[y] = rhs[y](valX, valY, valZ);
+    } // f1
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X2[y] = rhs[y](valX + dt / 2 * X1[0], valY + dt / 2 * X1[1],
+                     valZ + dt / 2 * X1[2]);
+    } // f2
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X3[y] = rhs[y](valX + dt / 2 * X2[0], valY + dt / 2 * X2[1],
+                     valZ + dt / 2 * X2[2]);
+    } // f3
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X4[y] = rhs[y](valX + dt / 2 * X3[0], valY + dt / 2 * X3[1],
+                     valZ + dt / 2 * X3[2]);
+    } // f4
+
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X[y * stride + (dimT * i + (x + 1))] =
+          X[y * stride + offset] +
+          dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
+    } // averaging
+  }
+}
 int main() {
   Timer timeCpu;
 
@@ -280,7 +235,7 @@ int main() {
   std::vector<std::thread> threads;
   for (int i{0}; i < particleNumber; ++i) {
     threads.push_back(
-        std::thread(rungeKutta4OrderCpu, std::ref(X), std::ref(rhs), i, dt));
+        std::thread(rungeKutta4OrderCpu2, std::ref(X), std::ref(rhs), i, dt));
   }
   // Join threads before program execution terminates
   for (auto &th : threads) {
