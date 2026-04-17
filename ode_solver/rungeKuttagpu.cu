@@ -166,15 +166,25 @@ void rungeKuttaGPU(std::vector<double> &X, double dt) {
                           // threads the N/512 will be number of blocks. also
                           // use a trick for the ceiling and launch extra
                           // threads!
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
 
-  Timer t_gpuprocess;
+  cudaEventRecord(start);
+  // Your Kernel Call Here
   rungeKutta4OrderGpu<<<numBlocks, numThreadsPerBlock>>>(
       X_d, dt); // provide the configuration inside <<< >>>>. Now each thread
                 // will execute this function! (so no for loop or sth)
-  cudaDeviceSynchronize(); // wait for GPU to finish!
-  std::cout << " GPU computation time! " << t_gpuprocess.elapsed() << " secs."
-            << '\n';
+  cudaEventRecord(stop);
 
+  cudaEventSynchronize(stop);
+  float milliseconds = 0;
+  cudaEventElapsedTime(&milliseconds, start, stop);
+  printf("Pure Kernel Time: %f ms\n", milliseconds);
+  cudaError_t err = cudaGetLastError();
+  if (err != cudaSuccess) {
+    printf("CUDA Error: %s\n", cudaGetErrorString(err));
+  }
   // Copy from the GPU
   cudaMemcpy(X.data(), X_d, arraySize * sizeof(double), cudaMemcpyDeviceToHost);
 
