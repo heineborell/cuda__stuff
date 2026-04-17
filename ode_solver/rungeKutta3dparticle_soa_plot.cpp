@@ -265,13 +265,10 @@ int main() {
   DisableCursor();
 
   while (!WindowShouldClose()) {
-    // Update
-    //----------------------------------------------------------------------------------
     UpdateCamera(&camera, CAMERA_FREE);
 
     if (IsKeyPressed(KEY_Z))
       camera.target = (Vector3){0.0f, 0.0f, 0.0f};
-    //----------------------------------------------------------------------------------
 
     BeginDrawing();
     ClearBackground(BLACK);
@@ -292,7 +289,7 @@ int main() {
             resultFloat[2 * dimT * particleNumber + (t * particleNumber + i)]};
         float z2{resultFloat[2 * dimT * particleNumber +
                              ((t + 1) * particleNumber + i)]}; // next x value
-        DrawLine3D({x1, y1, z1}, {x2, y2, z2}, GREEN);
+        DrawLine3D({x1, y1, z1}, {x2, y2, z2}, Color{0, 228, 48, 255});
       }
     }
 
