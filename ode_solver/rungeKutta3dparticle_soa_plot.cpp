@@ -1,10 +1,21 @@
+#include "Random.h"
+#include "helper.h"
 #include "math.h"
 #include "raylib.h"
+#include <array>
 #include <cstddef>
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <thread>
 #include <vector>
+
+constexpr std::size_t particleNumber{1000};
+constexpr double dt{0.001};
+constexpr double totalT{1.0};
+constexpr std::size_t dimT{static_cast<std::size_t>(totalT / dt)};
+constexpr std::size_t dimY{3};
+constexpr std::size_t arraySize{particleNumber * dimT * dimY};
 
 void printArray(std::vector<double> const &arr) {
   for (double const &item : arr) {
@@ -118,78 +129,85 @@ void rungeKutta4Order(
   std::vector<double> X4(dimX * dimY, 0.0);
   for (std::size_t x{0}; x < dimX - 1; ++x) {
     for (std::size_t y{0}; y < dimY - 1; ++y) {
-      X1[y * dimX + x] = rhs[y](X[0 * dimX + x], X[dimX + x], X[2 * dimX + x]);
-    } // f1
-    for (std::size_t y{0}; y < dimY - 1; ++y) {
-      X2[y * dimX + x] = rhs[y](X[0 * dimX + x] + dt / 2 * X1[0 * dimX + x],
-                                X[dimX + x] + dt / 2 * X1[dimX + x],
-                                X[2 * dimX + x] + dt / 2 * X1[2 * dimX + x]);
-    } // f2
-    for (std::size_t y{0}; y < dimY - 1; ++y) {
-      X3[y * dimX + x] = rhs[y](X[0 * dimX + x] + dt / 2 * X2[0 * dimX + x],
-                                X[dimX + x] + dt / 2 * X2[dimX + x],
-                                X[2 * dimX + x] + dt / 2 * X2[2 * dimX + x]);
-    } // f3
-    for (std::size_t y{0}; y < dimY - 1; ++y) {
-      X4[y * dimX + x] = rhs[y](X[0 * dimX + x] + dt / 2 * X3[0 * dimX + x],
-                                X[dimX + x] + dt / 2 * X3[dimX + x],
-                                X[2 * dimX + x] + dt / 2 * X3[2 * dimX + x]);
-    } // f4
+      X1[y * dimX + (x + 1)] = rhs[y](X[0 * dimX + x], X[dimX + x],
+                                      X[2 * dimX + x]); // f1
 
-    for (std::size_t y{0}; y < dimY - 1; ++y) {
+      X2[y * dimX + (x + 1)] =
+          rhs[y](X[0 * dimX + x] + dt / 2 * X1[0 * dimX + x],
+                 X[dimX + x] + dt / 2 * X1[dimX + x],
+                 X[2 * dimX + x] + dt / 2 * X1[2 * dimX + x]); // f2
+      X3[y * dimX + (x + 1)] =
+          rhs[y](X[0 * dimX + x] + dt / 2 * X2[0 * dimX + x],
+                 X[dimX + x] + dt / 2 * X2[dimX + x],
+                 X[2 * dimX + x] + dt / 2 * X2[2 * dimX + x]); // f3
+      X4[y * dimX + (x + 1)] =
+          rhs[y](X[0 * dimX + x] + dt / 2 * X3[0 * dimX + x],
+                 X[dimX + x] + dt / 2 * X3[dimX + x],
+                 X[2 * dimX + x] + dt / 2 * X3[2 * dimX + x]); // f4
+
       X[y * dimX + (x + 1)] =
-          X[y * dimX + x] + dt / 6 *
-                                (X1[y * dimX + x] + 2 * X2[y * dimX + x] +
-                                 2 * X3[y * dimX + x] + +X4[y * dimX + x]);
-    } // averaging
+          X[y * dimX + x] +
+          dt / 6 *
+              (X1[y * dimX + x] + 2 * X2[y * dimX + x] + 2 * X3[y * dimX + x] +
+               +X4[y * dimX + x]); // averaging
+    }
   }
 }
 
 void rungeKutta4OrderCpu(
     std::vector<double> &X,
-    std::vector<std::function<double(double, double, double)>> &rhs, double dt,
-    std::size_t dimX, std::size_t dimY) {
+    std::vector<std::function<double(double, double, double)>> &rhs,
+    std::size_t i, double dt) {
 
   std::array<double, 3> X1{};
   std::array<double, 3> X2{};
   std::array<double, 3> X3{};
   std::array<double, 3> X4{};
-  for (std::size_t x{0}; x < dimX - 1; ++x) {
-    for (std::size_t y{0}; y < dimY - 1; ++y) {
-      X1[y] = rhs[y](X[0 * dimX + x], X[dimX + x], X[2 * dimX + x]);
+  for (std::size_t x{0}; x < dimT - 1; ++x) {
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X1[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)],
+                     X[dimT * particleNumber + (x * particleNumber + i)],
+                     X[2 * dimT * particleNumber + (x * particleNumber + i)]);
     } // f1
-    for (std::size_t y{0}; y < dimY - 1; ++y) {
-      X2[y] =
-          rhs[y](X[0 * dimX + x] + dt / 2 * X1[0], X[dimX + x] + dt / 2 * X1[1],
-                 X[2 * dimX + x] + dt / 2 * X1[2]);
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X2[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X1[0],
+                     X[dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X1[1],
+                     X[2 * dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X1[2]);
     } // f2
-    for (std::size_t y{0}; y < dimY - 1; ++y) {
-      X3[y] =
-          rhs[y](X[0 * dimX + x] + dt / 2 * X2[0], X[dimX + x] + dt / 2 * X2[1],
-                 X[2 * dimX + x] + dt / 2 * X2[2]);
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X3[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X2[0],
+                     X[dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X2[1],
+                     X[2 * dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X2[2]);
     } // f3
-    for (std::size_t y{0}; y < dimY - 1; ++y) {
-      X4[y] =
-          rhs[y](X[0 * dimX + x] + dt / 2 * X3[0], X[dimX + x] + dt / 2 * X3[1],
-                 X[2 * dimX + x] + dt / 2 * X3[2]);
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X4[y] = rhs[y](X[0 * dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X3[0],
+                     X[dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X3[1],
+                     X[2 * dimT * particleNumber + (x * particleNumber + i)] +
+                         dt / 2 * X3[2]);
     } // f4
 
-    for (std::size_t y{0}; y < dimY - 1; ++y) {
-      X[y * dimX + (x + 1)] =
-          X[y * dimX + x] + dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
+    for (std::size_t y{0}; y < dimY; ++y) {
+      X[y * dimT * particleNumber + ((x + 1) * particleNumber + i)] =
+          X[y * dimT * particleNumber + (x * particleNumber + i)] +
+          dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
     } // averaging
   }
 }
+
 int main() {
+  Timer timeCpu;
 
   // solver piece
 
-  constexpr double dt{0.01};
-  constexpr double totalT{150.0};
-
-  constexpr std::size_t dimX{static_cast<std::size_t>(totalT / dt)};
-  // const int dimX{5};
-  constexpr std::size_t dimY{4};
+  std::vector<double> X(arraySize, 0.0);
 
   std::vector<std::function<double(double, double, double)>> rhs;
 
@@ -206,32 +224,28 @@ int main() {
       [beta](double x, double y, double z) { return x * y - beta * z; });
 
   // create X,Y,Z and set initial value
+  for (int i{0}; i < particleNumber; ++i) {
+    double x0{Random::get(1, 200) * 0.1};
+    double y0{Random::get(1, 200) * 0.1};
+    double z0{Random::get(1, 200) * 0.1};
+    X[0 * particleNumber * dimT + i] = x0; // x initial
+    X[1 * particleNumber * dimT + i] = y0; // y initial
+    X[2 * particleNumber * dimT + i] = z0; // z initial
+  }
 
-  std::vector<double> X(dimX * dimY, 0.0);
-  X[0] = 1.0;       // x initial
-  X[dimX] = 1.0;    // y initial
-  X[2 * dimX] = 27; // z initial
+  // // Launch threads
+  std::vector<std::thread> threads;
+  for (int i{0}; i < particleNumber; ++i) {
+    threads.push_back(
+        std::thread(rungeKutta4OrderCpu, std::ref(X), std::ref(rhs), i, dt));
+  }
+  // join threads before program execution terminates
+  for (auto &th : threads) {
+    th.join();
+  }
 
-  std::vector<double> X2(dimX * dimY, 0.0);
-  X2[0] = 1.0;       // x initial
-  X2[dimX] = 1.0;    // y initial
-  X2[2 * dimX] = 27; // z initial
-
-  std::vector<double> X4(dimX * dimY, 0.0);
-  X4[0] = 1.0;       // x initial
-  X4[dimX] = 1.0;    // y initial
-  X4[2 * dimX] = 27; // z initial
-
-  // time vector tk
-  timeVec(X, dimX, dimY, dt);
-
-  // integrator
-  forwardEuler(X, rhs, dt, dimX, dimY);
-  rungeKutta2Order(X2, rhs, dt, dimX, dimY);
-  rungeKutta4OrderCpu(X4, rhs, dt, dimX, dimY);
-  std::vector<float> resultFloat{castArray(X)};
-  std::vector<float> resultFloat2{castArray(X2)};
-  std::vector<float> resultFloat4{castArray(X4)};
+  std::cout << timeCpu.elapsed() << " seconds elapsed." << '\n';
+  std::vector<float> resultFloat{castArray(X)}; // cast result to float to plot
 
   const int screenWidth{1960};
   const int screenHeight{1200};
@@ -264,33 +278,24 @@ int main() {
     BeginMode3D(camera);
     // Note that in raylib the up coordinate is y
 
-    for (std::size_t i{0}; i < dimX - 1; ++i) {
-      float x1{resultFloat[i]};     // current x value
-      float x2{resultFloat[i + 1]}; // next x value
-      float y1{resultFloat[dimX + i]};
-      float y2{resultFloat[dimX + i + 1]};
-      float z1{resultFloat[2 * dimX + i]};
-      float z2{resultFloat[2 * dimX + +i + 1]};
-      DrawLine3D({x1, y1, z1}, {x2, y2, z2}, GREEN);
+    for (std::size_t i{0}; i < particleNumber; ++i) {
+      for (std::size_t t{0}; t < dimT - 1; ++t) {
+        float x1{resultFloat[0 * dimT * particleNumber +
+                             (t * particleNumber + i)]}; // current x value
+        float x2{resultFloat[0 * dimT * particleNumber +
+                             ((t + 1) * particleNumber + i)]}; // next x value
+        float y1{
+            resultFloat[1 * dimT * particleNumber + (t * particleNumber + i)]};
+        float y2{resultFloat[1 * dimT * particleNumber +
+                             ((t + 1) * particleNumber + i)]};
+        float z1{
+            resultFloat[2 * dimT * particleNumber + (t * particleNumber + i)]};
+        float z2{resultFloat[2 * dimT * particleNumber +
+                             ((t + 1) * particleNumber + i)]}; // next x value
+        DrawLine3D({x1, y1, z1}, {x2, y2, z2}, GREEN);
+      }
     }
-    for (std::size_t i{0}; i < dimX - 1; ++i) {
-      float x1{resultFloat2[i]};     // current x value
-      float x2{resultFloat2[i + 1]}; // next x value
-      float y1{resultFloat2[dimX + i]};
-      float y2{resultFloat2[dimX + i + 1]};
-      float z1{resultFloat2[2 * dimX + i]};
-      float z2{resultFloat2[2 * dimX + +i + 1]};
-      DrawLine3D({x1, y1, z1}, {x2, y2, z2}, BLUE);
-    }
-    for (std::size_t i{0}; i < dimX - 1; ++i) {
-      float x1{resultFloat4[i]};     // current x value
-      float x2{resultFloat4[i + 1]}; // next x value
-      float y1{resultFloat4[dimX + i]};
-      float y2{resultFloat4[dimX + i + 1]};
-      float z1{resultFloat4[2 * dimX + i]};
-      float z2{resultFloat4[2 * dimX + +i + 1]};
-      DrawLine3D({x1, y1, z1}, {x2, y2, z2}, RED);
-    }
+
     EndMode3D();
     DrawFPS(10, 10);
     EndDrawing();
