@@ -213,7 +213,7 @@ int main() {
   Xcpu = X;
 
   // Timer timeCpu;
-  // // // // Launch threads
+  // // Launch threads
   // std::cout << "Started launcing threads." << '\n';
   // std::vector<std::thread> threads;
   // for (int i{0}; i < particleNumber; ++i) {
@@ -226,7 +226,7 @@ int main() {
   // }
   // std::cout << "Joined threads." << '\n';
   // std::cout << timeCpu.elapsed() << " seconds elapsed." << '\n';
-  //
+
   rungeKuttaGPU(X, dt);
   cudaDeviceSynchronize();
 
