@@ -8,9 +8,9 @@
 #include <thread>
 #include <vector>
 
-constexpr std::size_t particleNumber{500000};
+constexpr std::size_t particleNumber{10000};
 constexpr double dt{0.001};
-constexpr double totalT{1.0};
+constexpr double totalT{10.0};
 constexpr std::size_t dimT{static_cast<std::size_t>(totalT / dt)};
 constexpr std::size_t dimY{3};
 constexpr std::size_t arraySize{particleNumber * dimT * dimY};
@@ -67,7 +67,7 @@ __global__ void rungeKutta4OrderGpu(double *X, double dt) {
       const double beta{8.0 / 3.0};
       const double rho{28};
 
-      const std::size_t offset = x * dimT + i;
+      const std::size_t offset = x * particleNumber + i;
       const std::size_t stride = dimT * particleNumber;
 
       const double valX = X[0 * stride + offset];
@@ -100,7 +100,7 @@ __global__ void rungeKutta4OrderGpu(double *X, double dt) {
                  valZ + dt / 2 * X3[2], beta);
 
       for (std::size_t y{0}; y < dimY; ++y) {
-        X[y * stride + (dimT * (x + 1) + i)] =
+        X[y * stride + (particleNumber * (x + 1) + i)] =
             X[y * stride + offset] +
             dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
       } // averaging
@@ -192,10 +192,8 @@ int main() {
 
   const int screenWidth{1960};
   const int screenHeight{1200};
-  float xRange{4.0f};
   InitWindow(screenWidth, screenHeight, "runge kutta 2");
   SetTargetFPS(60);
-  const float zoomSpeed{1.1f};
 
   // Define the camera to look into our 3d world
   Camera3D camera = {0};
@@ -218,17 +216,20 @@ int main() {
     BeginMode3D(camera);
     // Note that in raylib the up coordinate is y
 
-    for (std::size_t i{0}; i < 10; ++i) {
+    for (std::size_t i{0}; i < 15; ++i) {
       for (std::size_t t{0}; t < dimT - 1; ++t) {
         float x1{resultFloat[0 * dimT * particleNumber +
-                             (dimT * t + i)]}; // current x value
+                             (particleNumber * t + i)]}; // current x value
         float x2{resultFloat[0 * dimT * particleNumber +
-                             (dimT * (t + 1) + i)]}; // next x value
-        float y1{resultFloat[1 * dimT * particleNumber + (dimT * t + i)]};
-        float y2{resultFloat[1 * dimT * particleNumber + (dimT * (t + 1) + i)]};
-        float z1{resultFloat[2 * dimT * particleNumber + (dimT * t + i)]};
+                             (particleNumber * (t + 1) + i)]}; // next x value
+        float y1{
+            resultFloat[1 * dimT * particleNumber + (particleNumber * t + i)]};
+        float y2{resultFloat[1 * dimT * particleNumber +
+                             (particleNumber * (t + 1) + i)]};
+        float z1{
+            resultFloat[2 * dimT * particleNumber + (particleNumber * t + i)]};
         float z2{resultFloat[2 * dimT * particleNumber +
-                             (dimT * (t + 1) + i)]}; // next x value
+                             (particleNumber * (t + 1) + i)]}; // next x value
         DrawLine3D({x1, y1, z1}, {x2, y2, z2}, Color{0, 228, 48, 255});
       }
     }
