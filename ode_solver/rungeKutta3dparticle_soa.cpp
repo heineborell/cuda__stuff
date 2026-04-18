@@ -9,7 +9,7 @@
 #include <thread>
 #include <vector>
 
-constexpr std::size_t particleNumber{500000};
+constexpr std::size_t particleNumber{1000000};
 constexpr double dt{0.001};
 constexpr double totalT{1.0};
 constexpr std::size_t dimT{static_cast<std::size_t>(totalT / dt)};

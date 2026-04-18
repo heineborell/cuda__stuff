@@ -30,52 +30,6 @@ void showMatrix(std::vector<double> &vec, int gridDimX, int gridDimY) {
   }
 }
 
-void rungeKutta4OrderCpu2(
-    std::vector<double> &X,
-    std::vector<std::function<double(double, double, double)>> &rhs,
-    std::size_t i, double dt) {
-
-  std::array<double, 3> X1{};
-  std::array<double, 3> X2{};
-  std::array<double, 3> X3{};
-  std::array<double, 3> X4{};
-  for (std::size_t x{0}; x < dimT - 1; ++x) {
-
-    // so this type of sending threads to their locations is good for cpu but
-    // bad for gpu. as each thread wants to be next to each other and work as
-    // warps they move in chunks. in this case though we ask them to move to
-    // other place in memory i*dimT+x away so thats bad.
-    const std::size_t offset = i * dimT + x;
-    const std::size_t stride = dimT * particleNumber;
-
-    const double valX = X[0 * stride + offset];
-    const double valY = X[1 * stride + offset];
-    const double valZ = X[2 * stride + offset];
-
-    for (std::size_t y{0}; y < dimY; ++y) {
-      X1[y] = rhs[y](valX, valY, valZ);
-    } // f1
-    for (std::size_t y{0}; y < dimY; ++y) {
-      X2[y] = rhs[y](valX + dt / 2 * X1[0], valY + dt / 2 * X1[1],
-                     valZ + dt / 2 * X1[2]);
-    } // f2
-    for (std::size_t y{0}; y < dimY; ++y) {
-      X3[y] = rhs[y](valX + dt / 2 * X2[0], valY + dt / 2 * X2[1],
-                     valZ + dt / 2 * X2[2]);
-    } // f3
-    for (std::size_t y{0}; y < dimY; ++y) {
-      X4[y] = rhs[y](valX + dt / 2 * X3[0], valY + dt / 2 * X3[1],
-                     valZ + dt / 2 * X3[2]);
-    } // f4
-
-    for (std::size_t y{0}; y < dimY; ++y) {
-      X[y * stride + (dimT * i + (x + 1))] =
-          X[y * stride + offset] +
-          dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
-    } // averaging
-  }
-}
-
 __device__ double fx(double x, double y, double z, double param1) {
   return param1 * (y - x);
 }
@@ -104,15 +58,13 @@ __global__ void rungeKutta4OrderGpu(double *X, double dt) {
       const double beta{8.0 / 3.0};
       const double rho{28};
 
-      const std::size_t offset = i * dimT + x;
+      const std::size_t offset = x * dimT + i;
       const std::size_t stride = dimT * particleNumber;
 
       const double valX = X[0 * stride + offset];
       const double valY = X[1 * stride + offset];
       const double valZ = X[2 * stride + offset];
 
-      // another speed boost can come if these X1[0] are defined as simply
-      // doubles
       X1[0] = fx(valX, valY, valZ, sigma); // f1
       X1[1] = fy(valX, valY, valZ, rho);
       X1[2] = fz(valX, valY, valZ, beta);
@@ -139,7 +91,7 @@ __global__ void rungeKutta4OrderGpu(double *X, double dt) {
                  valZ + dt / 2 * X3[2], beta);
 
       for (std::size_t y{0}; y < dimY; ++y) {
-        X[y * stride + (dimT * i + (x + 1))] =
+        X[y * stride + (dimT * (x + 1) + i)] =
             X[y * stride + offset] +
             dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
       } // averaging
@@ -196,7 +148,6 @@ void rungeKuttaGPU(std::vector<double> &X, double dt) {
 int main() {
 
   std::vector<double> X(arraySize, 0.0);
-  std::vector<double> Xcpu(arraySize, 0.0);
 
   std::vector<std::function<double(double, double, double)>> rhs;
 
@@ -217,26 +168,11 @@ int main() {
     double x0{Random::get(1, 200) * 0.1};
     double y0{Random::get(1, 200) * 0.1};
     double z0{Random::get(1, 200) * 0.1};
-    X[0 * particleNumber * dimT + dimT * i] = x0; // x initial
-    X[1 * particleNumber * dimT + dimT * i] = y0; // y initial
-    X[2 * particleNumber * dimT + dimT * i] = z0; // z initial
+    X[0 * particleNumber * dimT + i] = x0; // x initial
+    X[1 * particleNumber * dimT + i] = y0; // y initial
+    X[2 * particleNumber * dimT + i] = z0; // z initial
   }
-  Xcpu = X;
-
-  // Timer timeCpu;
-  // // Launch threads
-  // std::cout << "Started launcing threads." << '\n';
-  // std::vector<std::thread> threads;
-  // for (int i{0}; i < particleNumber; ++i) {
-  //   threads.push_back(std::thread(rungeKutta4OrderCpu2, std::ref(Xcpu),
-  //                                 std::ref(rhs), i, dt));
-  // }
-  // // Join threads before program execution terminates
-  // for (auto &th : threads) {
-  //   th.join();
-  // }
-  // std::cout << "Joined threads." << '\n';
-  // std::cout << timeCpu.elapsed() << " seconds elapsed." << '\n';
+  // showMatrix(X, particleNumber * dimT, dimY);
 
   rungeKuttaGPU(X, dt);
   cudaDeviceSynchronize();
