@@ -52,13 +52,13 @@ __global__ void rungeKutta4OrderGpu(double *X, double dt) {
     double X3[3];
     double X4[3];
 
-    for (std::size_t x{0}; x < dimT - 1; ++x) {
+    for (std::size_t t{0}; t < dimT - 1; ++t) {
 
       const double sigma{10};
       const double beta{8.0 / 3.0};
       const double rho{28};
 
-      const std::size_t offset = x * dimT + i;
+      const std::size_t offset = t * particleNumber + i;
       const std::size_t stride = dimT * particleNumber;
 
       const double valX = X[0 * stride + offset];
@@ -91,7 +91,7 @@ __global__ void rungeKutta4OrderGpu(double *X, double dt) {
                  valZ + dt / 2 * X3[2], beta);
 
       for (std::size_t y{0}; y < dimY; ++y) {
-        X[y * stride + (dimT * (x + 1) + i)] =
+        X[y * stride + (particleNumber * (t + 1) + i)] =
             X[y * stride + offset] +
             dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
       } // averaging

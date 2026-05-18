@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-constexpr std::size_t particleNumber{10000};
+constexpr std::size_t particleNumber{30000};
 constexpr double dt{0.001};
 constexpr double totalT{10.0};
 constexpr std::size_t dimT{static_cast<std::size_t>(totalT / dt)};
@@ -216,7 +216,7 @@ int main() {
     BeginMode3D(camera);
     // Note that in raylib the up coordinate is y
 
-    for (std::size_t i{0}; i < 15; ++i) {
+    for (std::size_t i{0}; i < 150; ++i) {
       for (std::size_t t{0}; t < dimT - 1; ++t) {
         float x1{resultFloat[0 * dimT * particleNumber +
                              (particleNumber * t + i)]}; // current x value

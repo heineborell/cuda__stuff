@@ -117,6 +117,7 @@ void rungeKutta2Order(
   }
 }
 
+// soa means structure of arrays
 void rungeKutta4OrderCpu(
     std::vector<double> &X,
     std::vector<std::function<double(double, double, double)>> &rhs,
