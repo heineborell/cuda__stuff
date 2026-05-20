@@ -7,7 +7,7 @@
 #include <thread>
 #include <vector>
 
-constexpr std::size_t particleNumber{600000};
+constexpr std::size_t particleNumber{300000};
 constexpr double dt{0.001};
 constexpr double totalT{1.0};
 constexpr std::size_t dimT{static_cast<std::size_t>(totalT / dt)};
@@ -177,7 +177,7 @@ int main() {
   rungeKuttaGPU(X, dt);
   cudaDeviceSynchronize();
 
-  // printArray(X);
+  // showMatrix(X, particleNumber * dimT, dimY);
   // showMatrix(Xcpu, particleNumber * dimT, dimY);
 
   return 0;

@@ -9,7 +9,7 @@
 #include <thread>
 #include <vector>
 
-constexpr std::size_t particleNumber{1000000};
+constexpr std::size_t particleNumber{500000};
 constexpr double dt{0.001};
 constexpr double totalT{1.0};
 constexpr std::size_t dimT{static_cast<std::size_t>(totalT / dt)};
@@ -118,6 +118,7 @@ void rungeKutta2Order(
 }
 
 // soa means structure of arrays
+// [x_1to x_2to ....... x1_t1 x_2_t1...]
 void rungeKutta4OrderCpu(
     std::vector<double> &X,
     std::vector<std::function<double(double, double, double)>> &rhs,
@@ -127,9 +128,9 @@ void rungeKutta4OrderCpu(
   std::array<double, 3> X2{};
   std::array<double, 3> X3{};
   std::array<double, 3> X4{};
-  for (std::size_t x{0}; x < dimT - 1; ++x) {
+  for (std::size_t t{0}; t < dimT - 1; ++t) {
 
-    const std::size_t offset = x * particleNumber + i;
+    const std::size_t offset = t * particleNumber + i;
     const std::size_t stride = dimT * particleNumber;
 
     const double valX = X[0 * stride + offset];
@@ -153,13 +154,15 @@ void rungeKutta4OrderCpu(
     } // f4
 
     for (std::size_t y{0}; y < dimY; ++y) {
-      X[y * stride + ((x + 1) * particleNumber + i)] =
+      X[y * stride + ((t + 1) * particleNumber + i)] =
           X[y * stride + offset] +
           dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
     } // averaging
   }
 }
 
+// supposed to be faster on cpu multithread
+// [x_1to x_1t1 ....... x2_t0 x_2_t1...]
 void rungeKutta4OrderCpu2(
     std::vector<double> &X,
     std::vector<std::function<double(double, double, double)>> &rhs,
@@ -169,9 +172,9 @@ void rungeKutta4OrderCpu2(
   std::array<double, 3> X2{};
   std::array<double, 3> X3{};
   std::array<double, 3> X4{};
-  for (std::size_t x{0}; x < dimT - 1; ++x) {
+  for (std::size_t t{0}; t < dimT - 1; ++t) {
 
-    const std::size_t offset = i * dimT + x;
+    const std::size_t offset = i * dimT + t;
     const std::size_t stride = dimT * particleNumber;
 
     const double valX = X[0 * stride + offset];
@@ -195,18 +198,18 @@ void rungeKutta4OrderCpu2(
     } // f4
 
     for (std::size_t y{0}; y < dimY; ++y) {
-      X[y * stride + (dimT * i + (x + 1))] =
+      X[y * stride + (dimT * i + (t + 1))] =
           X[y * stride + offset] +
           dt / 6 * (X1[y] + 2 * X2[y] + 2 * X3[y] + +X4[y]);
     } // averaging
   }
 }
 int main() {
-  Timer timeCpu;
 
   // solver piece
 
   std::vector<double> X(arraySize, 0.0);
+  std::vector<double> X2(arraySize, 0.0);
 
   std::vector<std::function<double(double, double, double)>> rhs;
 
@@ -222,7 +225,7 @@ int main() {
   rhs.push_back(
       [beta](double x, double y, double z) { return x * y - beta * z; });
 
-  // create X,Y,Z and set initial value
+  // create X,Y,Z and set initial value (this is for rungeKutta4OrderCpu)
   for (int i{0}; i < particleNumber; ++i) {
     double x0{Random::get(1, 200) * 0.1};
     double y0{Random::get(1, 200) * 0.1};
@@ -231,19 +234,48 @@ int main() {
     X[1 * particleNumber * dimT + i] = y0; // y initial
     X[2 * particleNumber * dimT + i] = z0; // z initial
   }
+  // showMatrix(X, particleNumber * dimT, dimY);
 
   // // Launch threads
+  Timer timeCpu;
   std::vector<std::thread> threads;
   for (int i{0}; i < particleNumber; ++i) {
     threads.push_back(
-        std::thread(rungeKutta4OrderCpu2, std::ref(X), std::ref(rhs), i, dt));
+        std::thread(rungeKutta4OrderCpu, std::ref(X), std::ref(rhs), i, dt));
   }
   // Join threads before program execution terminates
   for (auto &th : threads) {
     th.join();
   }
 
-  std::cout << timeCpu.elapsed() << " seconds elapsed." << '\n';
+  std::cout << timeCpu.elapsed() << " seconds elapsed for the first solver."
+            << '\n';
 
+  // Do the same thing for the other solver cpu2 which is supposed to be faster?
+  // create X,Y,Z and set initial value (this is for rungeKutta4OrderCpu)
+  for (int i{0}; i < particleNumber; ++i) {
+    double x0{Random::get(1, 200) * 0.1};
+    double y0{Random::get(1, 200) * 0.1};
+    double z0{Random::get(1, 200) * 0.1};
+    X2[0 * particleNumber * dimT + i * dimT] = x0; // x initial
+    X2[1 * particleNumber * dimT + i * dimT] = y0; // y initial
+    X2[2 * particleNumber * dimT + i * dimT] = z0; // z initial
+  }
+  // showMatrix(X2, particleNumber * dimT, dimY);
+
+  // // Launch threads
+  Timer timeCpu2;
+  std::vector<std::thread> threads2;
+  for (int i{0}; i < particleNumber; ++i) {
+    threads2.push_back(
+        std::thread(rungeKutta4OrderCpu2, std::ref(X2), std::ref(rhs), i, dt));
+  }
+  // Join threads before program execution terminates
+  for (auto &th : threads2) {
+    th.join();
+  }
+
+  std::cout << timeCpu2.elapsed()
+            << " seconds elapsed for the optimised solver?" << '\n';
   return 0;
 }
